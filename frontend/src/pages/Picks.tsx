@@ -1,0 +1,491 @@
+import React, { useEffect, useState, useCallback } from "react";
+import type { GroupPick, ThirdsPick, KnockoutPicks, GroupCode } from "../types";
+import {
+  getGroupPicks,
+  updateGroupPick,
+  getThirdsPick,
+  updateThirdsPick,
+  getKnockoutPicks,
+  updateKnockoutPicks,
+} from "../lib/api";
+import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
+import GroupCard from "../components/GroupCard";
+import ThirdsPicker from "../components/ThirdsPicker";
+import BracketView from "../components/BracketView";
+
+const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
+
+function useCountdown(target: Date) {
+  const calc = () => Math.max(0, target.getTime() - Date.now());
+  const [timeLeft, setTimeLeft] = useState(calc);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTimeLeft(calc()), 1000);
+    return () => clearInterval(interval);
+  });
+
+  const totalSecs = Math.floor(timeLeft / 1000);
+  const days = Math.floor(totalSecs / 86400);
+  const hours = Math.floor((totalSecs % 86400) / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  return { days, hours, mins, secs, expired: timeLeft <= 0 };
+}
+
+type Step = 1 | 2 | 3;
+
+// Build the 32-team R32 field from group picks and thirds picks
+function buildR32Field(
+  groupPicks: GroupPick[],
+  thirdsPick: ThirdsPick | null,
+  thirdsSlots: Record<number, string>
+): string[] {
+  // Map group code -> pick
+  const pickMap: Record<string, GroupPick> = {};
+  for (const p of groupPicks) {
+    pickMap[p.group_code] = p;
+  }
+
+  function winner(g: string): string {
+    return pickMap[g]?.first_place || "TBD";
+  }
+  function runnerUp(g: string): string {
+    return pickMap[g]?.second_place || "TBD";
+  }
+
+  // Thirds slot -> team: use admin slots if provided, else use user's thirds picks in order
+  function thirdSlot(slot: number): string {
+    if (thirdsSlots[slot]) return thirdsSlots[slot];
+    if (thirdsPick && thirdsPick.teams[slot - 1]) return thirdsPick.teams[slot - 1];
+    return "TBD";
+  }
+
+  // 16 matches, 2 teams each = 32 spots
+  // Match 1: A1 vs T1, Match 2: B2 vs A2, Match 3: B1 vs T2, Match 4: C1 vs C2
+  // Match 5: D1 vs T3, Match 6: E2 vs D2, Match 7: E1 vs T4, Match 8: F1 vs F2
+  // Match 9: G1 vs T5, Match 10: H2 vs G2, Match 11: H1 vs T6, Match 12: I1 vs I2
+  // Match 13: J1 vs T7, Match 14: K2 vs J2, Match 15: K1 vs T8, Match 16: L1 vs L2
+  return [
+    winner("A"),    thirdSlot(1),
+    runnerUp("B"),  runnerUp("A"),
+    winner("B"),    thirdSlot(2),
+    winner("C"),    runnerUp("C"),
+    winner("D"),    thirdSlot(3),
+    runnerUp("E"),  runnerUp("D"),
+    winner("E"),    thirdSlot(4),
+    winner("F"),    runnerUp("F"),
+    winner("G"),    thirdSlot(5),
+    runnerUp("H"),  runnerUp("G"),
+    winner("H"),    thirdSlot(6),
+    winner("I"),    runnerUp("I"),
+    winner("J"),    thirdSlot(7),
+    runnerUp("K"),  runnerUp("J"),
+    winner("K"),    thirdSlot(8),
+    winner("L"),    runnerUp("L"),
+  ];
+}
+
+// Get third-place teams from group picks
+function getThirdPlaceTeams(groupPicks: GroupPick[]) {
+  const pickMap: Record<string, GroupPick> = {};
+  for (const p of groupPicks) {
+    pickMap[p.group_code] = p;
+  }
+  return GROUP_CODES.map((g) => ({
+    code: pickMap[g]?.third_place || "",
+    name: pickMap[g]?.third_place ? (TEAM_NAMES[pickMap[g].third_place] || pickMap[g].third_place) : "",
+    group: g,
+  })).filter((t) => t.code);
+}
+
+function emptyKnockoutPicks(): KnockoutPicks {
+  return {
+    R16: Array(16).fill(""),
+    QF: Array(8).fill(""),
+    SF: Array(4).fill(""),
+    Final: Array(2).fill(""),
+    Champion: "",
+    locked: false,
+  };
+}
+
+const STEP_LABELS = ["Group Stage", "Thirds", "Knockout Bracket"];
+
+export default function Picks() {
+  const countdown = useCountdown(PICKS_DEADLINE);
+  const isLocked = countdown.expired;
+
+  const [step, setStep] = useState<Step>(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [groupPicks, setGroupPicks] = useState<GroupPick[]>([]);
+  const [thirdsPick, setThirdsPick] = useState<ThirdsPick | null>(null);
+  const [knockoutPicks, setKnockoutPicks] = useState<KnockoutPicks>(emptyKnockoutPicks());
+
+  // Thirdsslots: admin may have assigned which thirds go to which bracket slot
+  const [thirdsSlots] = useState<Record<number, string>>({});
+
+  const [savingKnockout, setSavingKnockout] = useState(false);
+  const [savingThirds, setSavingThirds] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [gp, tp, kp] = await Promise.all([
+        getGroupPicks(),
+        getThirdsPick().catch(() => null),
+        getKnockoutPicks().catch(() => null),
+      ]);
+      setGroupPicks(gp);
+      setThirdsPick(tp);
+      if (kp) setKnockoutPicks(kp);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load picks.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const groupSavedCount = groupPicks.filter(
+    (p) => p.first_place && p.second_place && p.third_place && p.fourth_place
+  ).length;
+
+  const allGroupsDone = groupSavedCount === 12;
+
+  async function handleGroupSave(code: GroupCode, pick: Omit<GroupPick, "group_code" | "locked">) {
+    const saved = await updateGroupPick(code, pick);
+    setGroupPicks((prev) => {
+      const idx = prev.findIndex((p) => p.group_code === code);
+      if (idx === -1) return [...prev, saved];
+      const next = [...prev];
+      next[idx] = saved;
+      return next;
+    });
+  }
+
+  async function handleThirdsSave(teams: string[]) {
+    setSavingThirds(true);
+    setSaveMsg(null);
+    try {
+      const saved = await updateThirdsPick(teams);
+      setThirdsPick(saved);
+      setSaveMsg("Thirds picks saved!");
+      setTimeout(() => setSaveMsg(null), 3000);
+    } catch (err: unknown) {
+      setSaveMsg(err instanceof Error ? err.message : "Failed to save thirds.");
+    } finally {
+      setSavingThirds(false);
+    }
+  }
+
+  async function handleKnockoutSave() {
+    setSavingKnockout(true);
+    setSaveMsg(null);
+    try {
+      const { locked: _l, ...rest } = knockoutPicks;
+      const saved = await updateKnockoutPicks(rest);
+      setKnockoutPicks(saved);
+      setSaveMsg("Bracket picks saved!");
+      setTimeout(() => setSaveMsg(null), 3000);
+    } catch (err: unknown) {
+      setSaveMsg(err instanceof Error ? err.message : "Failed to save bracket.");
+    } finally {
+      setSavingKnockout(false);
+    }
+  }
+
+  const thirdPlaceTeams = getThirdPlaceTeams(groupPicks);
+  const r32Field = buildR32Field(groupPicks, thirdsPick, thirdsSlots);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-emerald-400 text-lg animate-pulse">Loading your picks...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={load}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-1">My Bracket Picks</h1>
+        <p className="text-gray-400 text-sm">Fill out your predictions for the 2026 World Cup</p>
+      </div>
+
+      {/* Deadline countdown */}
+      <div
+        className={`mb-6 rounded-xl border px-4 py-3 flex flex-wrap items-center gap-4 ${
+          isLocked
+            ? "bg-red-900/20 border-red-700/50"
+            : "bg-emerald-900/20 border-emerald-700/40"
+        }`}
+      >
+        {isLocked ? (
+          <div>
+            <span className="text-red-400 font-bold text-sm">Picks Locked</span>
+            <p className="text-gray-400 text-xs">The deadline has passed. You can view your picks below.</p>
+          </div>
+        ) : (
+          <>
+            <div>
+              <span className="text-emerald-400 font-bold text-sm">Picks Deadline:</span>
+              <span className="text-gray-300 text-sm ml-2">June 11, 2026 at 4:00 PM UTC</span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-gray-400 text-xs">Time left:</span>
+              <span className="text-emerald-400 font-mono font-bold text-sm">
+                {countdown.days}d {String(countdown.hours).padStart(2, "0")}h{" "}
+                {String(countdown.mins).padStart(2, "0")}m {String(countdown.secs).padStart(2, "0")}s
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-2 mb-8">
+        {([1, 2, 3] as Step[]).map((s) => (
+          <React.Fragment key={s}>
+            <button
+              onClick={() => {
+                if (s === 2 && !allGroupsDone) return;
+                if (s === 3 && !allGroupsDone) return;
+                setStep(s);
+              }}
+              disabled={s === 2 && !allGroupsDone || s === 3 && !allGroupsDone}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                step === s
+                  ? "bg-emerald-700 text-white"
+                  : s < step || (s === 2 && allGroupsDone) || (s === 3 && allGroupsDone)
+                  ? "bg-gray-800 text-emerald-400 hover:bg-gray-700 cursor-pointer"
+                  : "bg-gray-800 text-gray-600 cursor-not-allowed"
+              }`}
+            >
+              <span
+                className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold ${
+                  step === s ? "bg-white text-emerald-700" : "bg-gray-700 text-gray-400"
+                }`}
+              >
+                {s}
+              </span>
+              <span className="hidden sm:inline">{STEP_LABELS[s - 1]}</span>
+            </button>
+            {s < 3 && <div className="flex-1 h-px bg-gray-700" />}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Save message */}
+      {saveMsg && (
+        <div
+          className={`mb-4 rounded-lg px-4 py-2 text-sm font-medium ${
+            saveMsg.includes("Failed") || saveMsg.includes("failed")
+              ? "bg-red-900/30 border border-red-700 text-red-400"
+              : "bg-emerald-900/30 border border-emerald-700 text-emerald-400"
+          }`}
+        >
+          {saveMsg}
+        </div>
+      )}
+
+      {/* ---- STEP 1: Group Stage ---- */}
+      {step === 1 && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-white">Group Stage Picks</h2>
+              <p className="text-gray-400 text-sm mt-0.5">
+                Rank the teams 1st through 4th in each group
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                className={`px-3 py-1.5 rounded-full text-sm font-bold ${
+                  allGroupsDone ? "bg-emerald-600 text-white" : "bg-gray-700 text-gray-300"
+                }`}
+              >
+                {groupSavedCount} / 12 groups complete
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+            {GROUP_CODES.map((code) => {
+              const pick = groupPicks.find((p) => p.group_code === code) || null;
+              return (
+                <GroupCard
+                  key={code}
+                  groupCode={code}
+                  teams={GROUPS[code]}
+                  picks={pick}
+                  onSave={(p) => handleGroupSave(code as GroupCode, p)}
+                  locked={isLocked}
+                />
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={() => setStep(2)}
+              disabled={!allGroupsDone}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-colors ${
+                allGroupsDone
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                  : "bg-gray-700 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Next: Thirds Picks
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          {!allGroupsDone && (
+            <p className="text-gray-500 text-xs text-right mt-2">
+              Complete all 12 groups to continue
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ---- STEP 2: Thirds ---- */}
+      {step === 2 && (
+        <div>
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-white mb-1">Third-Place Teams</h2>
+            <p className="text-gray-400 text-sm">
+              In a 48-team World Cup, the best 8 of the 12 third-place teams advance to the
+              knockout round. Select which 8 you think will qualify.
+            </p>
+          </div>
+
+          <ThirdsPicker
+            thirdPlaceTeams={thirdPlaceTeams}
+            selected={thirdsPick?.teams || []}
+            onChange={(teams) => {
+              setThirdsPick((prev) => ({ teams, locked: prev?.locked || false }));
+            }}
+            locked={isLocked}
+          />
+
+          <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
+            <button
+              onClick={() => setStep(1)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors border border-gray-700"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+
+            <div className="flex items-center gap-3">
+              {!isLocked && (
+                <button
+                  onClick={() => handleThirdsSave(thirdsPick?.teams || [])}
+                  disabled={savingThirds || (thirdsPick?.teams || []).length !== 8}
+                  className={`px-5 py-2.5 rounded-lg font-bold transition-colors ${
+                    (thirdsPick?.teams || []).length === 8
+                      ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                      : "bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700"
+                  }`}
+                >
+                  {savingThirds ? "Saving..." : "Save Thirds"}
+                </button>
+              )}
+              <button
+                onClick={() => setStep(3)}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+              >
+                Next: Bracket
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- STEP 3: Knockout Bracket ---- */}
+      {step === 3 && (
+        <div>
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-white mb-1">Knockout Bracket</h2>
+            <p className="text-gray-400 text-sm">
+              Click a team to advance them to the next round. Work from the outside in toward the
+              champion.
+            </p>
+          </div>
+
+          <BracketView
+            r32Field={r32Field}
+            thirdsSlots={thirdsSlots}
+            picks={knockoutPicks}
+            onPicksChange={setKnockoutPicks}
+            locked={isLocked}
+          />
+
+          <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
+            <button
+              onClick={() => setStep(2)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors border border-gray-700"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+
+            {!isLocked && (
+              <button
+                onClick={handleKnockoutSave}
+                disabled={savingKnockout}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-60"
+              >
+                {savingKnockout ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Bracket Picks
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

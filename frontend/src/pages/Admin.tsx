@@ -1,0 +1,516 @@
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/auth";
+import {
+  getGroupResults,
+  submitGroupResult,
+  submitThirdsResult,
+  submitKnockoutResult,
+  recalculate,
+  getAdminUsers,
+} from "../lib/api";
+import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
+import type { GroupCode, GroupResult, ThirdsResult, AdminUser } from "../types";
+
+type Tab = "groups" | "thirds" | "knockout" | "recalculate" | "users";
+
+// ─── Group Results Section ────────────────────────────────────────────────────
+function GroupResultsSection({ groupResults, onResultSaved }: {
+  groupResults: Record<string, GroupResult>;
+  onResultSaved: () => void;
+}) {
+  const [forms, setForms] = useState<Record<string, GroupResult>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const init: Record<string, GroupResult> = {};
+    for (const code of GROUP_CODES) {
+      init[code] = groupResults[code] || {
+        group_code: code as GroupCode,
+        first_place: "",
+        second_place: "",
+        third_place: "",
+        fourth_place: "",
+      };
+    }
+    setForms(init);
+  }, [groupResults]);
+
+  function updateField(code: string, field: keyof GroupResult, value: string) {
+    setForms((prev) => ({
+      ...prev,
+      [code]: { ...prev[code], [field]: value },
+    }));
+  }
+
+  async function saveGroup(code: string) {
+    const f = forms[code];
+    if (!f.first_place || !f.second_place || !f.third_place || !f.fourth_place) {
+      setMessages((m) => ({ ...m, [code]: "All 4 positions required." }));
+      return;
+    }
+    setSaving(code);
+    try {
+      await submitGroupResult(code as GroupCode, {
+        first_place: f.first_place,
+        second_place: f.second_place,
+        third_place: f.third_place,
+        fourth_place: f.fourth_place,
+      });
+      setMessages((m) => ({ ...m, [code]: "✓ Saved" }));
+      onResultSaved();
+    } catch (err: unknown) {
+      setMessages((m) => ({ ...m, [code]: err instanceof Error ? err.message : "Error" }));
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-gray-400 text-sm">Enter final standings for each group (1st–4th place).</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {GROUP_CODES.map((code) => {
+          const teams = GROUPS[code];
+          const form = forms[code] || { first_place: "", second_place: "", third_place: "", fourth_place: "" };
+          const positions: Array<[keyof GroupResult, string]> = [
+            ["first_place", "1st"],
+            ["second_place", "2nd"],
+            ["third_place", "3rd"],
+            ["fourth_place", "4th"],
+          ];
+          return (
+            <div key={code} className="bg-gray-900 border border-gray-700 rounded-xl p-4 space-y-3">
+              <h3 className="text-emerald-400 font-bold text-sm uppercase tracking-wider">Group {code}</h3>
+              {positions.map(([field, label]) => (
+                <div key={field} className="flex items-center gap-2">
+                  <span className="text-gray-500 text-xs w-8 shrink-0">{label}</span>
+                  <select
+                    value={form[field] as string}
+                    onChange={(e) => updateField(code, field, e.target.value)}
+                    className="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="">-- Select --</option>
+                    {teams.map((t) => (
+                      <option key={t.code} value={t.code}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+              {messages[code] && (
+                <p className={`text-xs ${messages[code].startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                  {messages[code]}
+                </p>
+              )}
+              <button
+                onClick={() => saveGroup(code)}
+                disabled={saving === code}
+                className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+              >
+                {saving === code ? "Saving..." : "Save Result"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Thirds Result Section ────────────────────────────────────────────────────
+function ThirdsResultSection({ onSaved }: { onSaved: () => void }) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [slots, setSlots] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  function toggle(code: string) {
+    if (selected.includes(code)) {
+      setSelected(selected.filter((c) => c !== code));
+    } else if (selected.length < 8) {
+      setSelected([...selected, code]);
+    }
+  }
+
+  function updateSlot(slot: string, team: string) {
+    setSlots((prev) => ({ ...prev, [slot]: team }));
+  }
+
+  async function handleSave() {
+    if (selected.length !== 8) {
+      setMessage("Select exactly 8 teams.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      const data: ThirdsResult = {
+        qualified_thirds: selected,
+        bracket_slots: slots,
+      };
+      await submitThirdsResult(data);
+      setMessage("✓ Saved successfully");
+      onSaved();
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Error saving");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-gray-400 text-sm">
+        Select the 8 third-place teams that qualified for the knockout stage. Then assign them to bracket slots 1–8.
+      </p>
+
+      <div>
+        <h3 className="text-white font-semibold mb-3">
+          Select 8 Qualified Third-Place Teams ({selected.length}/8)
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {GROUP_CODES.map((code) => {
+            const group = GROUPS[code];
+            // Just list all teams from all groups for admin to pick from
+            return group.map((team) => {
+              const isSelected = selected.includes(team.code);
+              const disabled = !isSelected && selected.length >= 8;
+              return (
+                <button
+                  key={team.code}
+                  onClick={() => toggle(team.code)}
+                  disabled={disabled}
+                  className={`p-2.5 rounded-lg border text-left text-sm transition-colors ${
+                    isSelected
+                      ? "bg-emerald-700/40 border-emerald-500 text-white"
+                      : disabled
+                      ? "bg-gray-800/40 border-gray-700 text-gray-600 cursor-not-allowed"
+                      : "bg-gray-800 border-gray-600 text-gray-300 hover:border-emerald-600"
+                  }`}
+                >
+                  <div className="text-xs text-emerald-400 font-bold">Grp {code}</div>
+                  <div className="font-medium">{team.name}</div>
+                </button>
+              );
+            });
+          })}
+        </div>
+      </div>
+
+      {selected.length > 0 && (
+        <div>
+          <h3 className="text-white font-semibold mb-3">Assign to Bracket Slots (1–8)</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {Array.from({ length: 8 }, (_, i) => String(i + 1)).map((slot) => (
+              <div key={slot} className="flex items-center gap-3">
+                <span className="text-gray-400 text-sm w-14 shrink-0">Slot {slot}</span>
+                <select
+                  value={slots[slot] || ""}
+                  onChange={(e) => updateSlot(slot, e.target.value)}
+                  className="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="">-- Assign team --</option>
+                  {selected.map((code) => (
+                    <option key={code} value={code}>{TEAM_NAMES[code] || code}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {message && (
+        <p className={`text-sm ${message.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{message}</p>
+      )}
+      <button
+        onClick={handleSave}
+        disabled={saving || selected.length !== 8}
+        className="px-6 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded font-medium transition-colors"
+      >
+        {saving ? "Saving..." : "Save Thirds Result"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Knockout Results Section ─────────────────────────────────────────────────
+function KnockoutResultSection({ onSaved }: { onSaved: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  // Simple textarea-based input for each round (comma-separated team codes)
+  const [inputs, setInputs] = useState({ R32Winners: "", R16Winners: "", QFWinners: "", SFWinners: "", champion: "" });
+
+  function parseTeams(val: string): string[] {
+    return val.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  }
+
+  async function handleSave() {
+    const R32Winners = parseTeams(inputs.R32Winners);
+    const R16Winners = parseTeams(inputs.R16Winners);
+    const QFWinners = parseTeams(inputs.QFWinners);
+    const SFWinners = parseTeams(inputs.SFWinners);
+    const champion = inputs.champion.trim().toUpperCase();
+
+    if (R32Winners.length !== 16) { setMessage("R32 winners: need exactly 16 teams"); return; }
+    if (R16Winners.length !== 8) { setMessage("R16 winners: need exactly 8 teams"); return; }
+    if (QFWinners.length !== 4) { setMessage("QF winners: need exactly 4 teams"); return; }
+    if (SFWinners.length !== 2) { setMessage("SF winners: need exactly 2 teams"); return; }
+    if (!champion) { setMessage("Champion is required"); return; }
+
+    setSaving(true);
+    setMessage("");
+    try {
+      await submitKnockoutResult({ R32Winners, R16Winners, QFWinners, SFWinners, champion });
+      setMessage("✓ Knockout results saved");
+      onSaved();
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Error saving");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const rounds: Array<[keyof typeof inputs, string, number]> = [
+    ["R32Winners", "R32 Winners (16 teams)", 16],
+    ["R16Winners", "R16 Winners (8 teams)", 8],
+    ["QFWinners", "QF Winners (4 teams)", 4],
+    ["SFWinners", "SF Winners / Finalists (2 teams)", 2],
+    ["champion", "Champion (1 team)", 1],
+  ];
+
+  return (
+    <div className="space-y-5">
+      <p className="text-gray-400 text-sm">
+        Enter team codes (e.g. BRA, FRA) comma-separated for each round. Enter results after they are final.
+      </p>
+      {rounds.map(([field, label, count]) => (
+        <div key={field} className="space-y-1.5">
+          <label className="text-gray-300 text-sm font-medium block">
+            {label} <span className="text-gray-500 font-normal">({count} team{count > 1 ? "s" : ""})</span>
+          </label>
+          <input
+            type="text"
+            value={inputs[field]}
+            onChange={(e) => setInputs((prev) => ({ ...prev, [field]: e.target.value }))}
+            placeholder={count === 1 ? "e.g. BRA" : "e.g. BRA, FRA, ARG, ..."}
+            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600"
+          />
+        </div>
+      ))}
+      {message && (
+        <p className={`text-sm ${message.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{message}</p>
+      )}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="px-6 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded font-medium transition-colors"
+      >
+        {saving ? "Saving..." : "Save Knockout Results"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Admin Page ───────────────────────────────────────────────────────────────
+export default function Admin() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<Tab>("groups");
+  const [groupResults, setGroupResults] = useState<Record<string, GroupResult>>({});
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [recalcResult, setRecalcResult] = useState<string>("");
+  const [recalcLoading, setRecalcLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loading && (!user || !user.is_admin)) {
+      navigate("/", { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  async function loadGroupResults() {
+    try {
+      const results = await getGroupResults();
+      const map: Record<string, GroupResult> = {};
+      for (const r of results) map[r.group_code] = r;
+      setGroupResults(map);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function loadUsers() {
+    setUsersLoading(true);
+    try {
+      const users = await getAdminUsers();
+      setAdminUsers(users);
+    } catch {
+      setAdminUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadGroupResults();
+  }, []);
+
+  useEffect(() => {
+    if (tab === "users") loadUsers();
+  }, [tab]);
+
+  async function handleRecalculate() {
+    setRecalcLoading(true);
+    setRecalcResult("");
+    try {
+      const result = await recalculate();
+      setRecalcResult(`✓ Recalculated scores for ${result.processed} users.`);
+    } catch (err: unknown) {
+      setRecalcResult(err instanceof Error ? err.message : "Error during recalculation");
+    } finally {
+      setRecalcLoading(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen"><div className="text-emerald-400 animate-pulse">Loading...</div></div>;
+  }
+  if (!user?.is_admin) return null;
+
+  const tabs: Array<{ id: Tab; label: string }> = [
+    { id: "groups", label: "Group Results" },
+    { id: "thirds", label: "Third-Place Teams" },
+    { id: "knockout", label: "Knockout Results" },
+    { id: "recalculate", label: "Recalculate" },
+    { id: "users", label: "Users" },
+  ];
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white">Admin Panel</h1>
+        <p className="text-gray-400 mt-1">The Away End — World Cup 2026 Bracket Contest</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-8 flex-wrap">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t.id
+                ? "bg-emerald-700 text-white"
+                : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6">
+        {tab === "groups" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-4">Group Stage Results</h2>
+            <GroupResultsSection groupResults={groupResults} onResultSaved={loadGroupResults} />
+          </>
+        )}
+
+        {tab === "thirds" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-4">Third-Place Qualifiers</h2>
+            <ThirdsResultSection onSaved={() => {}} />
+          </>
+        )}
+
+        {tab === "knockout" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-4">Knockout Round Results</h2>
+            <KnockoutResultSection onSaved={() => {}} />
+          </>
+        )}
+
+        {tab === "recalculate" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-4">Recalculate Scores</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Run this after entering results to update all user scores and the leaderboard.
+              This operation is idempotent — safe to run multiple times.
+            </p>
+            <button
+              onClick={handleRecalculate}
+              disabled={recalcLoading}
+              className="px-8 py-3 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-semibold text-lg transition-colors"
+            >
+              {recalcLoading ? "Recalculating..." : "Recalculate All Scores"}
+            </button>
+            {recalcResult && (
+              <p className={`mt-4 text-sm ${recalcResult.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                {recalcResult}
+              </p>
+            )}
+          </>
+        )}
+
+        {tab === "users" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-4">
+              Users
+              {adminUsers.length > 0 && (
+                <span className="text-gray-400 font-normal text-base ml-2">({adminUsers.length} registered)</span>
+              )}
+            </h2>
+            {usersLoading ? (
+              <div className="text-emerald-400 animate-pulse py-8 text-center">Loading users...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-400 border-b border-gray-700">
+                      <th className="text-left py-2 pr-4 font-medium">Name</th>
+                      <th className="text-left py-2 pr-4 font-medium">Email</th>
+                      <th className="text-center py-2 pr-4 font-medium">Groups</th>
+                      <th className="text-center py-2 pr-4 font-medium">Thirds</th>
+                      <th className="text-center py-2 pr-4 font-medium">Bracket</th>
+                      <th className="text-right py-2 font-medium">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {adminUsers.map((u) => (
+                      <tr key={u.id} className="text-gray-300 hover:bg-gray-800/40">
+                        <td className="py-2 pr-4">
+                          {u.display_name}
+                          {u.id === user.id && <span className="text-emerald-400 text-xs ml-2">(you)</span>}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-400 text-xs">{u.email}</td>
+                        <td className="py-2 pr-4 text-center">
+                          {u.has_group_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
+                        </td>
+                        <td className="py-2 pr-4 text-center">
+                          {u.has_thirds_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
+                        </td>
+                        <td className="py-2 pr-4 text-center">
+                          {u.has_knockout_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
+                        </td>
+                        <td className="py-2 text-right font-medium">{u.total_score}</td>
+                      </tr>
+                    ))}
+                    {adminUsers.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-gray-500">No users yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
