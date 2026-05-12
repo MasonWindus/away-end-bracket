@@ -1,0 +1,67 @@
+name: Deploy Away End Bracket
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install dependencies
+        run: |
+          npm install
+          cd backend && npm install && cd ..
+          cd frontend && npm install && cd ..
+          cd infrastructure && npm install && cd ..
+
+      - name: Typecheck backend
+        run: cd backend && npm run typecheck
+
+      - name: Build backend
+        run: cd backend && npm run build
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: /api
+        run: cd frontend && npm run build
+
+      - name: Bootstrap CDK (idempotent, safe to always run)
+        run: cd infrastructure && npx cdk bootstrap
+
+      - name: Deploy
+        run: |
+          cd infrastructure && npx cdk deploy AwayEndBracketStack \
+            --require-approval never \
+            --outputs-file ../cdk-outputs.json
+
+      - name: Print stack outputs
+        run: |
+          echo "=== Stack Outputs ==="
+          cat cdk-outputs.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          stack = list(data.values())[0]
+          for k, v in stack.items():
+              print(f'  {k}: {v}')
+          "
