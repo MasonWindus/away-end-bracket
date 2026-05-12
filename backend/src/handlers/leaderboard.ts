@@ -159,10 +159,8 @@ async function getUserBracket(userId: string): Promise<APIGatewayProxyResult> {
   }) as ScoresItem | undefined;
 
   return response(200, {
-    user: {
-      id: userItem.id,
-      display_name: userItem.display_name,
-    },
+    userId: userItem.id,
+    display_name: userItem.display_name,
     group_picks: groupPicks,
     thirds_pick: thirdsPick
       ? {
