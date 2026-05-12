@@ -434,11 +434,9 @@ async function getUsers(): Promise<APIGatewayProxyResult> {
         display_name: user.display_name,
         email: user.email,
         is_admin: user.is_admin,
-        picks_status: {
-          groups_complete: groupsComplete,
-          thirds_complete: thirdsComplete,
-          knockout_complete: knockoutComplete,
-        },
+        has_group_picks: groupsComplete,
+        has_thirds_picks: thirdsComplete,
+        has_knockout_picks: knockoutComplete,
         total_score: scoresItem?.total_score ?? 0,
       };
     })
