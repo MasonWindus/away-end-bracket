@@ -266,6 +266,8 @@ export default function BracketView({
     onPicksChange({ ...picks, Champion: team === picks.Champion ? "" : team });
   }
 
+  const SLOT_H = 110; // px — base slot height for one R32 match; each subsequent round doubles this
+
   const r32Left = r32Matches.slice(0, 8);   // matches 1-8 (left half)
   const r32Right = r32Matches.slice(8, 16); // matches 9-16 (right half)
 
@@ -305,158 +307,191 @@ export default function BracketView({
 
       {/* Bracket - scrollable on mobile */}
       <div className="overflow-x-auto pb-4">
-        <div className="min-w-[900px]">
-          {/* ---- LEFT HALF ---- */}
-          <div className="flex gap-2 mb-6">
-            {/* R32 Left */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+        <div className="min-w-[1400px]">
+          {/*
+            Slot-based bracket layout: each round's matches sit in a "slot" whose height
+            doubles each round. R32 slot = SLOT_H, R16 = 2×, QF = 4×, SF = 8×.
+            All columns have the same total data height (8 × SLOT_H), so every match
+            is vertically centered between the two matches that feed into it.
+          */}
+          <div className="flex gap-2">
+            {/* R32 Left — 8 matches, slot height = 1× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 32</div>
               {r32Left.map((match, i) => (
-                <MatchBox
-                  key={i}
-                  label={`M${i + 1}`}
-                  teamA={match[0]}
-                  teamB={match[1]}
-                  winner={picks.R16[i] || ""}
-                  onPick={(team) => pickR32Winner(i, team)}
-                  locked={locked}
-                  compact
-                />
+                <div key={i} style={{ height: `${SLOT_H}px` }} className="flex items-center">
+                  <div className="w-full">
+                    <MatchBox
+                      label={`M${i + 1}`}
+                      teamA={match[0]}
+                      teamB={match[1]}
+                      winner={picks.R16[i] || ""}
+                      onPick={(team) => pickR32Winner(i, team)}
+                      locked={locked}
+                      compact
+                    />
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* R16 Left */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+            {/* R16 Left — 4 matches, slot height = 2× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 16</div>
               {r16Left.map((match, i) => (
-                <MatchBox
-                  key={i}
-                  label={`R16-${i + 1}`}
-                  teamA={match[0]}
-                  teamB={match[1]}
-                  winner={picks.QF[i] || ""}
-                  onPick={(team) => pickR16Winner(i, team)}
-                  locked={locked}
-                  compact
-                />
+                <div key={i} style={{ height: `${SLOT_H * 2}px` }} className="flex items-center">
+                  <div className="w-full">
+                    <MatchBox
+                      label={`R16-${i + 1}`}
+                      teamA={match[0]}
+                      teamB={match[1]}
+                      winner={picks.QF[i] || ""}
+                      onPick={(team) => pickR16Winner(i, team)}
+                      locked={locked}
+                      compact
+                    />
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* QF Left */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+            {/* QF Left — 2 matches, slot height = 4× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Quarterfinals</div>
               {qfLeft.map((match, i) => (
-                <MatchBox
-                  key={i}
-                  label={`QF-${i + 1}`}
-                  teamA={match[0]}
-                  teamB={match[1]}
-                  winner={picks.SF[i] || ""}
-                  onPick={(team) => pickQFWinner(i, team)}
-                  locked={locked}
-                  compact
-                />
+                <div key={i} style={{ height: `${SLOT_H * 4}px` }} className="flex items-center">
+                  <div className="w-full">
+                    <MatchBox
+                      label={`QF-${i + 1}`}
+                      teamA={match[0]}
+                      teamB={match[1]}
+                      winner={picks.SF[i] || ""}
+                      onPick={(team) => pickQFWinner(i, team)}
+                      locked={locked}
+                      compact
+                    />
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* SF Left */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+            {/* SF Left — 1 match, slot height = 8× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Semifinals</div>
-              <MatchBox
-                label="SF-1"
-                teamA={sfMatches[0][0]}
-                teamB={sfMatches[0][1]}
-                winner={picks.Final[0] || ""}
-                onPick={(team) => pickSFWinner(0, team)}
-                locked={locked}
-                compact
-              />
+              <div style={{ height: `${SLOT_H * 8}px` }} className="flex items-center">
+                <div className="w-full">
+                  <MatchBox
+                    label="SF-1"
+                    teamA={sfMatches[0][0]}
+                    teamB={sfMatches[0][1]}
+                    winner={picks.Final[0] || ""}
+                    onPick={(team) => pickSFWinner(0, team)}
+                    locked={locked}
+                    compact
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Final + Champion (center) */}
-            <div className="flex flex-col items-center justify-center gap-3 px-2 flex-1">
+            {/* Final + Champion (center) — full height slot */}
+            <div className="flex flex-col items-center flex-1">
               <div className="text-away-gold text-[10px] font-bold uppercase tracking-widest text-center mb-1">
                 🏆 Final
               </div>
-              <MatchBox
-                label="FINAL"
-                teamA={picks.Final[0] || ""}
-                teamB={picks.Final[1] || ""}
-                winner={picks.Champion || ""}
-                onPick={(team) => pickChampion(team)}
-                locked={locked}
-                compact
-              />
-              {picks.Champion && (
-                <div className="mt-2 bg-away-gold/20 border border-away-gold/50 rounded-lg p-2 text-center w-full">
-                  <p className="text-away-gold text-[10px] font-bold uppercase">Champion</p>
-                  <p className="text-away-cream text-xs font-bold mt-0.5">{teamName(picks.Champion)}</p>
-                </div>
-              )}
+              <div style={{ height: `${SLOT_H * 8}px` }} className="flex flex-col items-center justify-center gap-3 px-2 w-full">
+                <MatchBox
+                  label="FINAL"
+                  teamA={picks.Final[0] || ""}
+                  teamB={picks.Final[1] || ""}
+                  winner={picks.Champion || ""}
+                  onPick={(team) => pickChampion(team)}
+                  locked={locked}
+                  compact
+                />
+                {picks.Champion && (
+                  <div className="mt-2 bg-away-gold/20 border border-away-gold/50 rounded-lg p-2 text-center w-full">
+                    <p className="text-away-gold text-[10px] font-bold uppercase">Champion</p>
+                    <p className="text-away-cream text-xs font-bold mt-0.5">{teamName(picks.Champion)}</p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* SF Right */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+            {/* SF Right — 1 match, slot height = 8× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Semifinals</div>
-              <MatchBox
-                label="SF-2"
-                teamA={sfMatches[1][0]}
-                teamB={sfMatches[1][1]}
-                winner={picks.Final[1] || ""}
-                onPick={(team) => pickSFWinner(1, team)}
-                locked={locked}
-                compact
-              />
+              <div style={{ height: `${SLOT_H * 8}px` }} className="flex items-center">
+                <div className="w-full">
+                  <MatchBox
+                    label="SF-2"
+                    teamA={sfMatches[1][0]}
+                    teamB={sfMatches[1][1]}
+                    winner={picks.Final[1] || ""}
+                    onPick={(team) => pickSFWinner(1, team)}
+                    locked={locked}
+                    compact
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* QF Right */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+            {/* QF Right — 2 matches, slot height = 4× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Quarterfinals</div>
               {qfRight.map((match, i) => (
-                <MatchBox
-                  key={i}
-                  label={`QF-${i + 3}`}
-                  teamA={match[0]}
-                  teamB={match[1]}
-                  winner={picks.SF[i + 2] || ""}
-                  onPick={(team) => pickQFWinner(i + 2, team)}
-                  locked={locked}
-                  compact
-                />
+                <div key={i} style={{ height: `${SLOT_H * 4}px` }} className="flex items-center">
+                  <div className="w-full">
+                    <MatchBox
+                      label={`QF-${i + 3}`}
+                      teamA={match[0]}
+                      teamB={match[1]}
+                      winner={picks.SF[i + 2] || ""}
+                      onPick={(team) => pickQFWinner(i + 2, team)}
+                      locked={locked}
+                      compact
+                    />
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* R16 Right */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+            {/* R16 Right — 4 matches, slot height = 2× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 16</div>
               {r16Right.map((match, i) => (
-                <MatchBox
-                  key={i}
-                  label={`R16-${i + 5}`}
-                  teamA={match[0]}
-                  teamB={match[1]}
-                  winner={picks.QF[i + 4] || ""}
-                  onPick={(team) => pickR16Winner(i + 4, team)}
-                  locked={locked}
-                  compact
-                />
+                <div key={i} style={{ height: `${SLOT_H * 2}px` }} className="flex items-center">
+                  <div className="w-full">
+                    <MatchBox
+                      label={`R16-${i + 5}`}
+                      teamA={match[0]}
+                      teamB={match[1]}
+                      winner={picks.QF[i + 4] || ""}
+                      onPick={(team) => pickR16Winner(i + 4, team)}
+                      locked={locked}
+                      compact
+                    />
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* R32 Right */}
-            <div className="flex flex-col justify-around gap-2 flex-1">
+            {/* R32 Right — 8 matches, slot height = 1× */}
+            <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 32</div>
               {r32Right.map((match, i) => (
-                <MatchBox
-                  key={i}
-                  label={`M${i + 9}`}
-                  teamA={match[0]}
-                  teamB={match[1]}
-                  winner={picks.R16[i + 8] || ""}
-                  onPick={(team) => pickR32Winner(i + 8, team)}
-                  locked={locked}
-                  compact
-                />
+                <div key={i} style={{ height: `${SLOT_H}px` }} className="flex items-center">
+                  <div className="w-full">
+                    <MatchBox
+                      label={`M${i + 9}`}
+                      teamA={match[0]}
+                      teamB={match[1]}
+                      winner={picks.R16[i + 8] || ""}
+                      onPick={(team) => pickR32Winner(i + 8, team)}
+                      locked={locked}
+                      compact
+                    />
+                  </div>
+                </div>
               ))}
             </div>
           </div>
