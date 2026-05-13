@@ -305,16 +305,15 @@ export default function BracketView({
         </div>
       )}
 
-      {/* Bracket - scrollable on mobile */}
-      <div className="overflow-x-auto pb-4">
-        <div className="min-w-[1400px]">
-          {/*
-            Slot-based bracket layout: each round's matches sit in a "slot" whose height
-            doubles each round. R32 slot = SLOT_H, R16 = 2×, QF = 4×, SF = 8×.
-            All columns have the same total data height (8 × SLOT_H), so every match
-            is vertically centered between the two matches that feed into it.
-          */}
-          <div className="flex gap-2">
+      {/* Bracket */}
+      <div className="pb-4">
+        {/*
+          Slot-based bracket layout: each round's matches sit in a "slot" whose height
+          doubles each round. R32 slot = SLOT_H, R16 = 2×, QF = 4×, SF = 8×.
+          All columns have the same total data height (8 × SLOT_H), so every match
+          is vertically centered between the two matches that feed into it.
+        */}
+        <div className="flex gap-2">
             {/* R32 Left — 8 matches, slot height = 1× */}
             <div className="flex flex-col flex-1">
               <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 32</div>
@@ -494,7 +493,6 @@ export default function BracketView({
                 </div>
               ))}
             </div>
-          </div>
         </div>
       </div>
 
