@@ -35,13 +35,13 @@ export class AwayEndBracketStack extends cdk.Stack {
     });
 
     // ─── SSM Parameters (create these manually before deploy) ─────────────────
-    // aws ssm put-parameter --name /away-end/jwt-secret --value "your-secret" --type SecureString
+    // aws ssm put-parameter --name /away-end/jwt-secret --value "your-secret" --type String
     // aws ssm put-parameter --name /away-end/from-email --value "noreply@yourdomain.com" --type String
     // aws ssm put-parameter --name /away-end/frontend-url --value "https://yourdomain.com" --type String
-    const jwtSecret = ssm.StringParameter.fromSecureStringParameterAttributes(
+    const jwtSecret = ssm.StringParameter.fromStringParameterName(
       this,
       'JwtSecret',
-      { parameterName: '/away-end/jwt-secret' }
+      '/away-end/jwt-secret'
     );
     const fromEmail = ssm.StringParameter.fromStringParameterName(
       this,
