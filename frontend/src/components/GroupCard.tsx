@@ -16,6 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { GroupPick } from "../types";
+import { TEAM_FLAGS } from "../data/teams";
 
 interface Team {
   code: string;
@@ -56,7 +57,10 @@ function SortableTeamRow({ team, index, locked }: { team: Team; index: number; l
       <span className="text-away-cream/40 text-xs font-bold w-7 shrink-0 text-right">
         {POSITION_LABELS[index]}
       </span>
-      <span className="flex-1 text-sm text-away-cream truncate">{team.name}</span>
+      <span className="flex-1 text-sm text-away-cream truncate flex items-center gap-1.5">
+        <span>{TEAM_FLAGS[team.code]}</span>
+        <span className="truncate">{team.name}</span>
+      </span>
       {!locked && (
         <button
           {...attributes}
