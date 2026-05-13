@@ -15,6 +15,7 @@ import {
   verifyMagicLinkToken,
 } from "../lib/middleware";
 import { sendMagicLinkEmail, sendRegistrationEmail } from "../lib/email";
+import { containsProfanity } from "../lib/profanity";
 import { EmailLookupItem, MagicTokenItem, UserItem } from "../types";
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -78,6 +79,10 @@ async function register(
 
   if (display_name.trim().length < 2 || display_name.trim().length > 50) {
     return errorResponse(400, "display_name must be between 2 and 50 characters");
+  }
+
+  if (containsProfanity(display_name)) {
+    return errorResponse(400, "display_name contains inappropriate language");
   }
 
   // Check if email already exists
