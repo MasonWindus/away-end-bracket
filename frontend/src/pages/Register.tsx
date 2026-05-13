@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+import { Filter } from "bad-words";
 import { useNavigate } from "react-router-dom";
 import { register, requestMagicLink } from "../lib/api";
 import { useAuth } from "../lib/auth";
+
+const profanityFilter = new Filter();
 
 type Tab = "new" | "returning";
 
@@ -15,6 +18,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
 
   // Redirect if already logged in
   if (user) {
@@ -22,11 +26,26 @@ export default function Register() {
     return null;
   }
 
+  function validateDisplayName(name: string): string | null {
+    if (name.trim().length < 2) return "Display name must be at least 2 characters.";
+    if (profanityFilter.isProfane(name)) return "Display name contains inappropriate language.";
+    return null;
+  }
+
+  function handleDisplayNameBlur() {
+    setDisplayNameError(validateDisplayName(displayName));
+  }
+
   async function handleNewUser(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!displayName.trim()) {
       setError("Please enter your display name.");
+      return;
+    }
+    const nameErr = validateDisplayName(displayName);
+    if (nameErr) {
+      setDisplayNameError(nameErr);
       return;
     }
     if (!email.trim()) {
@@ -65,6 +84,7 @@ export default function Register() {
   function switchTab(t: Tab) {
     setTab(t);
     setError(null);
+    setDisplayNameError(null);
     setSuccess(false);
     setDisplayName("");
     setEmail("");
@@ -150,12 +170,16 @@ export default function Register() {
                   <input
                     type="text"
                     value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
+                    onChange={(e) => { setDisplayName(e.target.value); setDisplayNameError(null); }}
+                    onBlur={handleDisplayNameBlur}
                     placeholder="Your name (shown on leaderboard)"
-                    className="w-full bg-away-forest border border-away-moss rounded-lg px-4 py-3 text-away-cream placeholder-away-cream/30 focus:outline-none focus:border-away-gold focus:ring-1 focus:ring-away-gold text-sm"
+                    className={`w-full bg-away-forest border rounded-lg px-4 py-3 text-away-cream placeholder-away-cream/30 focus:outline-none focus:ring-1 text-sm ${displayNameError ? "border-red-600 focus:border-red-600 focus:ring-red-600" : "border-away-moss focus:border-away-gold focus:ring-away-gold"}`}
                     maxLength={50}
                     disabled={loading}
                   />
+                  {displayNameError && (
+                    <p className="mt-1 text-red-400 text-xs">{displayNameError}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-away-cream/80 mb-1">
