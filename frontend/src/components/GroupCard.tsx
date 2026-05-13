@@ -1,4 +1,20 @@
 import React, { useState, useEffect } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { GroupPick } from "../types";
 
 interface Team {
@@ -14,60 +30,104 @@ interface GroupCardProps {
   locked: boolean;
 }
 
-const POSITIONS = ["first_place", "second_place", "third_place", "fourth_place"] as const;
-const POSITION_LABELS = ["1st Place", "2nd Place", "3rd Place", "4th Place"];
+const POSITION_LABELS = ["1st", "2nd", "3rd", "4th"];
+
+function SortableTeamRow({ team, index, locked }: { team: Team; index: number; locked: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: team.code,
+    disabled: locked,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded-lg px-2 py-2 border transition-colors select-none ${
+        isDragging
+          ? "bg-away-gold/20 border-away-gold shadow-lg z-10 relative"
+          : "bg-away-forest border-away-moss"
+      } ${locked ? "opacity-80" : ""}`}
+    >
+      <span className="text-away-cream/40 text-xs font-bold w-7 shrink-0 text-right">
+        {POSITION_LABELS[index]}
+      </span>
+      <span className="flex-1 text-sm text-away-cream truncate">{team.name}</span>
+      {!locked && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1 text-away-cream/30 hover:text-away-cream/70 cursor-grab active:cursor-grabbing touch-none"
+          tabIndex={-1}
+          aria-label="Drag to reorder"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function GroupCard({ groupCode, teams, picks, onSave, locked }: GroupCardProps) {
-  const initialOrder: [string, string, string, string] = picks
-    ? [picks.first_place, picks.second_place, picks.third_place, picks.fourth_place]
-    : ["", "", "", ""];
+  function initialOrder(): Team[] {
+    if (picks?.first_place) {
+      const codes = [picks.first_place, picks.second_place, picks.third_place, picks.fourth_place];
+      return codes.map((c) => teams.find((t) => t.code === c)!).filter(Boolean);
+    }
+    return [...teams];
+  }
 
-  const [order, setOrder] = useState<[string, string, string, string]>(initialOrder);
+  const [order, setOrder] = useState<Team[]>(initialOrder);
+  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(!!picks?.first_place);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync if parent picks change (e.g., on load)
   useEffect(() => {
-    if (picks) {
-      setOrder([picks.first_place, picks.second_place, picks.third_place, picks.fourth_place]);
+    if (picks?.first_place) {
+      const codes = [picks.first_place, picks.second_place, picks.third_place, picks.fourth_place];
+      setOrder(codes.map((c) => teams.find((t) => t.code === c)!).filter(Boolean));
+      setSaved(true);
+      setDirty(false);
     }
-  }, [picks]);
+  }, [picks, teams]);
 
-  function handleChange(posIndex: number, value: string) {
-    if (locked) return;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setOrder((prev) => {
+      const oldIdx = prev.findIndex((t) => t.code === active.id);
+      const newIdx = prev.findIndex((t) => t.code === over.id);
+      return arrayMove(prev, oldIdx, newIdx);
+    });
+    setDirty(true);
     setSaved(false);
     setError(null);
-    const newOrder = [...order] as [string, string, string, string];
-    // If this team is already in another slot, swap
-    const existingIdx = newOrder.findIndex((v, i) => i !== posIndex && v === value);
-    if (existingIdx !== -1) {
-      newOrder[existingIdx] = newOrder[posIndex];
-    }
-    newOrder[posIndex] = value;
-    setOrder(newOrder);
   }
 
   async function handleSave() {
     setError(null);
-    if (order.some((v) => !v)) {
-      setError("Please select a team for every position.");
-      return;
-    }
-    const unique = new Set(order);
-    if (unique.size !== 4) {
-      setError("Each team must appear in exactly one position.");
-      return;
-    }
     setSaving(true);
     try {
       await onSave({
-        first_place: order[0],
-        second_place: order[1],
-        third_place: order[2],
-        fourth_place: order[3],
+        first_place: order[0].code,
+        second_place: order[1].code,
+        third_place: order[2].code,
+        fourth_place: order[3].code,
       });
       setSaved(true);
+      setDirty(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save.");
     } finally {
@@ -75,12 +135,13 @@ export default function GroupCard({ groupCode, teams, picks, onSave, locked }: G
     }
   }
 
-  const isComplete = order.every(Boolean) && new Set(order).size === 4;
+  const isComplete = order.length === 4;
+  const showSavePrompt = isComplete && (dirty || !saved);
 
   return (
     <div
       className={`bg-away-green border rounded-xl p-4 flex flex-col gap-3 transition-colors ${
-        locked ? "border-away-moss opacity-80" : isComplete ? "border-away-gold/50" : "border-away-moss"
+        locked ? "border-away-moss opacity-80" : saved && !dirty ? "border-away-gold/50" : "border-away-moss"
       }`}
     >
       {/* Header */}
@@ -88,7 +149,7 @@ export default function GroupCard({ groupCode, teams, picks, onSave, locked }: G
         <h3 className="text-away-gold font-bold text-sm uppercase tracking-widest">
           Group {groupCode}
         </h3>
-        {saved && !locked && (
+        {saved && !dirty && !locked && (
           <span className="flex items-center gap-1 text-away-gold text-xs font-medium">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -110,54 +171,36 @@ export default function GroupCard({ groupCode, teams, picks, onSave, locked }: G
         )}
       </div>
 
-      {/* Dropdowns */}
-      <div className="space-y-2">
-        {POSITIONS.map((_, posIdx) => (
-          <div key={posIdx} className="flex items-center gap-2">
-            <span className="text-away-cream/50 text-xs font-medium w-16 shrink-0">
-              {POSITION_LABELS[posIdx]}
-            </span>
-            {locked ? (
-              <div className="flex-1 bg-away-forest border border-away-moss rounded-lg px-3 py-2 text-sm text-away-cream/80">
-                {teams.find((t) => t.code === order[posIdx])?.name || (
-                  <span className="text-away-cream/30 italic">Not set</span>
-                )}
-              </div>
-            ) : (
-              <select
-                value={order[posIdx]}
-                onChange={(e) => handleChange(posIdx, e.target.value)}
-                className="flex-1 bg-away-forest border border-away-moss rounded-lg px-3 py-2 text-sm text-away-cream focus:outline-none focus:border-away-gold focus:ring-1 focus:ring-away-gold cursor-pointer"
-              >
-                <option value="">-- Select team --</option>
-                {teams.map((team) => (
-                  <option key={team.code} value={team.code}>
-                    {team.name} ({team.code})
-                  </option>
-                ))}
-              </select>
-            )}
+      {/* Sortable list */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={order.map((t) => t.code)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-1.5">
+            {order.map((team, idx) => (
+              <SortableTeamRow key={team.code} team={team} index={idx} locked={locked} />
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
 
-      {/* Error */}
-      {error && (
-        <p className="text-red-400 text-xs mt-1">{error}</p>
+      {!locked && (
+        <p className="text-away-cream/30 text-xs text-center">
+          Drag to reorder
+        </p>
       )}
 
-      {/* Save button */}
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+
       {!locked && (
         <button
           onClick={handleSave}
-          disabled={saving || !isComplete}
+          disabled={saving || !showSavePrompt}
           className={`mt-1 w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
-            isComplete
+            showSavePrompt
               ? "bg-away-gold hover:bg-away-gold-light text-away-forest"
               : "bg-away-moss text-away-cream/30 cursor-not-allowed"
           } disabled:opacity-60`}
         >
-          {saving ? "Saving..." : saved ? "✓ Saved" : "Save Group"}
+          {saving ? "Saving..." : saved && !dirty ? "✓ Saved" : "Save Group"}
         </button>
       )}
     </div>
