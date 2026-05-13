@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { SoccerBallIcon } from "../components/SoccerBallIcon";
+import { GROUPS, TEAM_FLAGS } from "../data/teams";
 
 const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
 
@@ -176,28 +177,16 @@ export default function Home() {
           </h2>
           <p className="text-away-cream/60 text-center mb-8 text-sm">48 teams across 12 groups — the biggest World Cup ever</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {[
-              { g: "A", teams: ["Mexico", "South Africa", "Korea Republic", "Czechia"] },
-              { g: "B", teams: ["Canada", "Bosnia & Herz.", "Qatar", "Switzerland"] },
-              { g: "C", teams: ["Brazil", "Morocco", "Haiti", "Scotland"] },
-              { g: "D", teams: ["United States", "Paraguay", "Australia", "Türkiye"] },
-              { g: "E", teams: ["Germany", "Ivory Coast", "Ecuador", "Curaçao"] },
-              { g: "F", teams: ["Netherlands", "Sweden", "Tunisia", "Japan"] },
-              { g: "G", teams: ["Belgium", "Egypt", "Iran", "New Zealand"] },
-              { g: "H", teams: ["Spain", "Cape Verde", "Saudi Arabia", "Uruguay"] },
-              { g: "I", teams: ["France", "Senegal", "Iraq", "Norway"] },
-              { g: "J", teams: ["Argentina", "Algeria", "Austria", "Jordan"] },
-              { g: "K", teams: ["Portugal", "DR Congo", "Uzbekistan", "Colombia"] },
-              { g: "L", teams: ["England", "Croatia", "Ghana", "Panama"] },
-            ].map(({ g, teams }) => (
+            {Object.entries(GROUPS).map(([g, teams]) => (
               <div key={g} className="bg-away-green border border-away-moss rounded-lg p-3">
                 <div className="text-away-gold font-bold text-xs uppercase tracking-widest mb-2">
                   Group {g}
                 </div>
                 <ul className="space-y-1">
                   {teams.map((t) => (
-                    <li key={t} className="text-away-cream/80 text-xs">
-                      {t}
+                    <li key={t.code} className="text-away-cream/80 text-xs flex items-center gap-1.5">
+                      <span>{TEAM_FLAGS[t.code]}</span>
+                      <span>{t.name}</span>
                     </li>
                   ))}
                 </ul>

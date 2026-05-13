@@ -1,4 +1,5 @@
 import React from "react";
+import { TEAM_FLAGS } from "../data/teams";
 
 interface ThirdTeam {
   code: string;
@@ -99,10 +100,10 @@ export default function ThirdsPicker({ thirdPlaceTeams, selected, onChange, lock
                   <div className="text-xs font-bold text-away-gold mb-0.5">
                     Group {team.group}
                   </div>
-                  <div className="text-sm font-semibold leading-tight">
-                    {team.name}
+                  <div className="text-sm font-semibold leading-tight flex items-center gap-1.5">
+                    <span>{TEAM_FLAGS[team.code]}</span>
+                    <span>{team.name}</span>
                   </div>
-                  <div className="text-xs text-away-cream/40 mt-0.5">{team.code}</div>
                 </div>
               </button>
             );
