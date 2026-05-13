@@ -405,24 +405,22 @@ export default function Picks() {
             </button>
 
             <div className="flex items-center gap-3">
-              {!isLocked && (
-                <button
-                  onClick={() => handleThirdsSave(thirdsPick?.teams || [])}
-                  disabled={savingThirds || (thirdsPick?.teams || []).length !== 8}
-                  className={`px-5 py-2.5 rounded-lg font-bold transition-colors ${
-                    (thirdsPick?.teams || []).length === 8
-                      ? "bg-away-moss hover:bg-away-green text-away-cream border border-away-moss"
-                      : "bg-away-green text-away-cream/30 cursor-not-allowed border border-away-moss/50"
-                  }`}
-                >
-                  {savingThirds ? "Saving..." : "Save Thirds"}
-                </button>
-              )}
               <button
-                onClick={() => setStep(3)}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold bg-away-orange hover:bg-away-orange-light text-away-cream transition-colors"
+                onClick={async () => {
+                  const teams = thirdsPick?.teams || [];
+                  if (!isLocked && teams.length === 8) {
+                    await handleThirdsSave(teams);
+                  }
+                  setStep(3);
+                }}
+                disabled={savingThirds || (thirdsPick?.teams || []).length !== 8}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-colors ${
+                  (thirdsPick?.teams || []).length === 8
+                    ? "bg-away-orange hover:bg-away-orange-light text-away-cream"
+                    : "bg-away-moss text-away-cream/30 cursor-not-allowed"
+                }`}
               >
-                Next: Bracket
+                {savingThirds ? "Saving..." : "Next: Bracket"}
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
