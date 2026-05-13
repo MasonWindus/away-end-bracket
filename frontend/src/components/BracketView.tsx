@@ -266,7 +266,7 @@ export default function BracketView({
     onPicksChange({ ...picks, Champion: team === picks.Champion ? "" : team });
   }
 
-  const SLOT_H = 110; // px — base slot height for one R32 match; each subsequent round doubles this
+  const SLOT_H = 132; // px — base slot height for one R32 match; each subsequent round doubles this
 
   const r32Left = r32Matches.slice(0, 8);   // matches 1-8 (left half)
   const r32Right = r32Matches.slice(8, 16); // matches 9-16 (right half)
