@@ -84,19 +84,19 @@ function TeamButton({ code, isWinner, isLoser, isTBD, disabled, onClick, compact
       title={name}
       className={`w-full text-left px-2 py-1.5 text-xs font-medium rounded transition-all duration-100 border ${
         isTBD || !code
-          ? "bg-gray-800/50 border-gray-700 text-gray-600 cursor-not-allowed italic"
+          ? "bg-away-forest/50 border-away-moss/50 text-away-cream/30 cursor-not-allowed italic"
           : isWinner
-          ? "bg-emerald-700 border-emerald-500 text-white cursor-default shadow shadow-emerald-900/50"
+          ? "bg-away-gold/30 border-away-gold text-away-cream cursor-default shadow shadow-away-forest"
           : isLoser
-          ? "bg-gray-800 border-gray-700 text-gray-600 line-through cursor-default"
+          ? "bg-away-forest border-away-moss/50 text-away-cream/30 line-through cursor-default"
           : disabled
-          ? "bg-gray-800 border-gray-700 text-gray-400 cursor-not-allowed"
-          : "bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700 hover:border-emerald-600 cursor-pointer"
+          ? "bg-away-green border-away-moss text-away-cream/40 cursor-not-allowed"
+          : "bg-away-green border-away-moss text-away-cream/80 hover:bg-away-moss hover:border-away-gold cursor-pointer"
       }`}
     >
       <span className="flex items-center gap-1.5">
         {isWinner && (
-          <svg className="w-3 h-3 text-emerald-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3 h-3 text-away-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         )}
@@ -121,10 +121,10 @@ function MatchBox({ label, teamA, teamB, winner, onPick, locked, compact }: Matc
   const bTBD = !teamB || teamB === "TBD";
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden min-w-[130px]">
+    <div className="bg-away-green border border-away-moss rounded-lg overflow-hidden min-w-[130px]">
       {label && (
-        <div className="bg-gray-800 border-b border-gray-700 px-2 py-0.5">
-          <span className="text-gray-500 text-[10px] font-medium uppercase tracking-wider">{label}</span>
+        <div className="bg-away-moss border-b border-away-green px-2 py-0.5">
+          <span className="text-away-cream/50 text-[10px] font-medium uppercase tracking-wider">{label}</span>
         </div>
       )}
       <div className="p-1.5 space-y-1">
@@ -137,7 +137,7 @@ function MatchBox({ label, teamA, teamB, winner, onPick, locked, compact }: Matc
           onClick={() => onPick(teamA)}
           compact={compact}
         />
-        <div className="text-center text-[9px] text-gray-600 font-medium">vs</div>
+        <div className="text-center text-[9px] text-away-cream/30 font-medium">vs</div>
         <TeamButton
           code={teamB}
           isWinner={!!(winner && winner === teamB)}
@@ -287,18 +287,18 @@ export default function BracketView({
       )}
 
       {!locked && (
-        <p className="text-gray-400 text-sm">
+        <p className="text-away-cream/60 text-sm">
           Click a team to advance them to the next round. Work left-to-right through the bracket.
         </p>
       )}
 
       {/* Champion display */}
       {picks.Champion && (
-        <div className="bg-emerald-900/30 border border-emerald-600 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div className="bg-away-gold/20 border border-away-gold rounded-xl px-4 py-3 flex items-center gap-3">
           <span className="text-2xl">🏆</span>
           <div>
-            <p className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Your Champion Pick</p>
-            <p className="text-white font-bold text-lg">{teamName(picks.Champion)}</p>
+            <p className="text-away-gold text-xs font-bold uppercase tracking-wider">Your Champion Pick</p>
+            <p className="text-away-cream font-bold text-lg">{teamName(picks.Champion)}</p>
           </div>
         </div>
       )}
@@ -310,7 +310,7 @@ export default function BracketView({
           <div className="flex gap-2 mb-6">
             {/* R32 Left */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 32</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 32</div>
               {r32Left.map((match, i) => (
                 <MatchBox
                   key={i}
@@ -327,7 +327,7 @@ export default function BracketView({
 
             {/* R16 Left */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 16</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 16</div>
               {r16Left.map((match, i) => (
                 <MatchBox
                   key={i}
@@ -344,7 +344,7 @@ export default function BracketView({
 
             {/* QF Left */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Quarterfinals</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Quarterfinals</div>
               {qfLeft.map((match, i) => (
                 <MatchBox
                   key={i}
@@ -361,7 +361,7 @@ export default function BracketView({
 
             {/* SF Left */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Semifinals</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Semifinals</div>
               <MatchBox
                 label="SF-1"
                 teamA={sfMatches[0][0]}
@@ -375,7 +375,7 @@ export default function BracketView({
 
             {/* Final + Champion (center) */}
             <div className="flex flex-col items-center justify-center gap-3 px-2 flex-1">
-              <div className="text-yellow-400 text-[10px] font-bold uppercase tracking-widest text-center mb-1">
+              <div className="text-away-gold text-[10px] font-bold uppercase tracking-widest text-center mb-1">
                 🏆 Final
               </div>
               <MatchBox
@@ -388,16 +388,16 @@ export default function BracketView({
                 compact
               />
               {picks.Champion && (
-                <div className="mt-2 bg-yellow-500/10 border border-yellow-600/50 rounded-lg p-2 text-center w-full">
-                  <p className="text-yellow-400 text-[10px] font-bold uppercase">Champion</p>
-                  <p className="text-white text-xs font-bold mt-0.5">{teamName(picks.Champion)}</p>
+                <div className="mt-2 bg-away-gold/20 border border-away-gold/50 rounded-lg p-2 text-center w-full">
+                  <p className="text-away-gold text-[10px] font-bold uppercase">Champion</p>
+                  <p className="text-away-cream text-xs font-bold mt-0.5">{teamName(picks.Champion)}</p>
                 </div>
               )}
             </div>
 
             {/* SF Right */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Semifinals</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Semifinals</div>
               <MatchBox
                 label="SF-2"
                 teamA={sfMatches[1][0]}
@@ -411,7 +411,7 @@ export default function BracketView({
 
             {/* QF Right */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Quarterfinals</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Quarterfinals</div>
               {qfRight.map((match, i) => (
                 <MatchBox
                   key={i}
@@ -428,7 +428,7 @@ export default function BracketView({
 
             {/* R16 Right */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 16</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 16</div>
               {r16Right.map((match, i) => (
                 <MatchBox
                   key={i}
@@ -445,7 +445,7 @@ export default function BracketView({
 
             {/* R32 Right */}
             <div className="flex flex-col justify-around gap-2 flex-1">
-              <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 32</div>
+              <div className="text-away-cream/40 text-[10px] font-bold uppercase tracking-widest text-center mb-1">Round of 32</div>
               {r32Right.map((match, i) => (
                 <MatchBox
                   key={i}
@@ -476,14 +476,14 @@ export default function BracketView({
             key={label}
             className={`rounded-lg py-2 px-3 border ${
               count === total
-                ? "bg-emerald-900/30 border-emerald-700/50"
-                : "bg-gray-900 border-gray-700"
+                ? "bg-away-gold/20 border-away-gold/50"
+                : "bg-away-green border-away-moss"
             }`}
           >
-            <div className={`text-lg font-bold ${count === total ? "text-emerald-400" : "text-gray-400"}`}>
+            <div className={`text-lg font-bold ${count === total ? "text-away-gold" : "text-away-cream/50"}`}>
               {count}/{total}
             </div>
-            <div className="text-xs text-gray-500">{label}</div>
+            <div className="text-xs text-away-cream/40">{label}</div>
           </div>
         ))}
       </div>
