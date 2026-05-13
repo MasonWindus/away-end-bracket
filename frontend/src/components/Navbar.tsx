@@ -20,24 +20,26 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
+    <nav className="bg-away-moss border-b border-away-green sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand */}
           <Link
             to="/"
-            className="flex items-center gap-2 text-white font-bold text-lg tracking-wide hover:text-emerald-400 transition-colors"
+            className="flex items-center gap-2 text-away-cream hover:text-away-gold transition-colors"
             onClick={() => setMenuOpen(false)}
           >
             <span className="text-2xl">⚽</span>
-            <span className="text-emerald-400">THE AWAY END</span>
+            <span className="font-display text-2xl tracking-widest text-away-gold leading-none">
+              THE AWAY END
+            </span>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-6">
             <Link
               to="/leaderboard"
-              className="text-gray-300 hover:text-emerald-400 transition-colors text-sm font-medium"
+              className="text-away-cream/80 hover:text-away-gold transition-colors text-sm font-semibold tracking-wide uppercase"
             >
               Leaderboard
             </Link>
@@ -45,22 +47,22 @@ export default function Navbar() {
               <>
                 <Link
                   to="/picks"
-                  className="text-gray-300 hover:text-emerald-400 transition-colors text-sm font-medium"
+                  className="text-away-cream/80 hover:text-away-gold transition-colors text-sm font-semibold tracking-wide uppercase"
                 >
                   My Picks
                 </Link>
                 {user.is_admin && (
                   <Link
                     to="/admin"
-                    className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm font-medium"
+                    className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm font-semibold tracking-wide uppercase"
                   >
                     Admin
                   </Link>
                 )}
-                <span className="text-gray-400 text-sm">{user.display_name}</span>
+                <span className="text-away-cream/60 text-sm">{user.display_name}</span>
                 <button
                   onClick={handleLogout}
-                  className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                  className="bg-away-green hover:bg-away-forest text-away-cream px-3 py-1.5 rounded text-sm font-semibold transition-colors border border-away-green"
                 >
                   Logout
                 </button>
@@ -68,7 +70,7 @@ export default function Navbar() {
             ) : (
               <Link
                 to="/register"
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                className="bg-away-orange hover:bg-away-orange-light text-away-cream px-4 py-1.5 rounded text-sm font-semibold transition-colors"
               >
                 Sign In
               </Link>
@@ -77,7 +79,7 @@ export default function Navbar() {
 
           {/* Mobile hamburger */}
           <button
-            className="md:hidden text-gray-300 hover:text-white p-2"
+            className="md:hidden text-away-cream/80 hover:text-away-cream p-2"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Toggle menu"
           >
@@ -95,10 +97,10 @@ export default function Navbar() {
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden pb-4 border-t border-gray-800 mt-2 pt-4 space-y-2">
+          <div className="md:hidden pb-4 border-t border-away-green mt-2 pt-4 space-y-2">
             <Link
               to="/leaderboard"
-              className="block text-gray-300 hover:text-emerald-400 py-2 text-sm font-medium transition-colors"
+              className="block text-away-cream/80 hover:text-away-gold py-2 text-sm font-semibold uppercase tracking-wide transition-colors"
               onClick={() => setMenuOpen(false)}
             >
               Leaderboard
@@ -107,7 +109,7 @@ export default function Navbar() {
               <>
                 <Link
                   to="/picks"
-                  className="block text-gray-300 hover:text-emerald-400 py-2 text-sm font-medium transition-colors"
+                  className="block text-away-cream/80 hover:text-away-gold py-2 text-sm font-semibold uppercase tracking-wide transition-colors"
                   onClick={() => setMenuOpen(false)}
                 >
                   My Picks
@@ -115,17 +117,17 @@ export default function Navbar() {
                 {user.is_admin && (
                   <Link
                     to="/admin"
-                    className="block text-yellow-400 hover:text-yellow-300 py-2 text-sm font-medium transition-colors"
+                    className="block text-yellow-400 hover:text-yellow-300 py-2 text-sm font-semibold uppercase tracking-wide transition-colors"
                     onClick={() => setMenuOpen(false)}
                   >
                     Admin
                   </Link>
                 )}
-                <div className="pt-2 border-t border-gray-800">
-                  <p className="text-gray-400 text-sm mb-2">{user.display_name}</p>
+                <div className="pt-2 border-t border-away-green">
+                  <p className="text-away-cream/60 text-sm mb-2">{user.display_name}</p>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
+                    className="w-full text-left bg-away-green hover:bg-away-forest text-away-cream px-3 py-2 rounded text-sm font-semibold transition-colors"
                   >
                     Logout
                   </button>
@@ -134,7 +136,7 @@ export default function Navbar() {
             ) : (
               <Link
                 to="/register"
-                className="block bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors text-center"
+                className="block bg-away-orange hover:bg-away-orange-light text-away-cream px-4 py-2 rounded text-sm font-semibold transition-colors text-center"
                 onClick={() => setMenuOpen(false)}
               >
                 Sign In

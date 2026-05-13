@@ -207,7 +207,7 @@ export default function Picks() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-emerald-400 text-lg animate-pulse">Loading your picks...</div>
+        <div className="text-away-gold text-lg animate-pulse font-semibold">Loading your picks...</div>
       </div>
     );
   }
@@ -219,7 +219,7 @@ export default function Picks() {
           <p className="text-red-400 mb-4">{error}</p>
           <button
             onClick={load}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg"
+            className="bg-away-orange hover:bg-away-orange-light text-away-cream px-6 py-2 rounded-lg font-semibold"
           >
             Retry
           </button>
@@ -232,8 +232,8 @@ export default function Picks() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-1">My Bracket Picks</h1>
-        <p className="text-gray-400 text-sm">Fill out your predictions for the 2026 World Cup</p>
+        <h1 className="font-display text-4xl tracking-widest text-away-gold mb-1">My Bracket Picks</h1>
+        <p className="text-away-cream/60 text-sm">Fill out your predictions for the 2026 World Cup</p>
       </div>
 
       {/* Deadline countdown */}
@@ -241,23 +241,23 @@ export default function Picks() {
         className={`mb-6 rounded-xl border px-4 py-3 flex flex-wrap items-center gap-4 ${
           isLocked
             ? "bg-red-900/20 border-red-700/50"
-            : "bg-emerald-900/20 border-emerald-700/40"
+            : "bg-away-gold/10 border-away-gold/30"
         }`}
       >
         {isLocked ? (
           <div>
             <span className="text-red-400 font-bold text-sm">Picks Locked</span>
-            <p className="text-gray-400 text-xs">The deadline has passed. You can view your picks below.</p>
+            <p className="text-away-cream/60 text-xs">The deadline has passed. You can view your picks below.</p>
           </div>
         ) : (
           <>
             <div>
-              <span className="text-emerald-400 font-bold text-sm">Picks Deadline:</span>
-              <span className="text-gray-300 text-sm ml-2">June 11, 2026 at 4:00 PM UTC</span>
+              <span className="text-away-gold font-bold text-sm">Picks Deadline:</span>
+              <span className="text-away-cream/80 text-sm ml-2">June 11, 2026 at 4:00 PM UTC</span>
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <span className="text-gray-400 text-xs">Time left:</span>
-              <span className="text-emerald-400 font-mono font-bold text-sm">
+              <span className="text-away-cream/50 text-xs">Time left:</span>
+              <span className="text-away-gold font-mono font-bold text-sm">
                 {countdown.days}d {String(countdown.hours).padStart(2, "0")}h{" "}
                 {String(countdown.mins).padStart(2, "0")}m {String(countdown.secs).padStart(2, "0")}s
               </span>
@@ -279,22 +279,22 @@ export default function Picks() {
               disabled={s === 2 && !allGroupsDone || s === 3 && !allGroupsDone}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                 step === s
-                  ? "bg-emerald-700 text-white"
+                  ? "bg-away-gold text-away-forest"
                   : s < step || (s === 2 && allGroupsDone) || (s === 3 && allGroupsDone)
-                  ? "bg-gray-800 text-emerald-400 hover:bg-gray-700 cursor-pointer"
-                  : "bg-gray-800 text-gray-600 cursor-not-allowed"
+                  ? "bg-away-green text-away-gold hover:bg-away-moss cursor-pointer border border-away-moss"
+                  : "bg-away-green text-away-cream/30 cursor-not-allowed border border-away-moss/50"
               }`}
             >
               <span
                 className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold ${
-                  step === s ? "bg-white text-emerald-700" : "bg-gray-700 text-gray-400"
+                  step === s ? "bg-away-forest text-away-gold" : "bg-away-moss text-away-cream/60"
                 }`}
               >
                 {s}
               </span>
               <span className="hidden sm:inline">{STEP_LABELS[s - 1]}</span>
             </button>
-            {s < 3 && <div className="flex-1 h-px bg-gray-700" />}
+            {s < 3 && <div className="flex-1 h-px bg-away-moss" />}
           </React.Fragment>
         ))}
       </div>
@@ -305,7 +305,7 @@ export default function Picks() {
           className={`mb-4 rounded-lg px-4 py-2 text-sm font-medium ${
             saveMsg.includes("Failed") || saveMsg.includes("failed")
               ? "bg-red-900/30 border border-red-700 text-red-400"
-              : "bg-emerald-900/30 border border-emerald-700 text-emerald-400"
+              : "bg-away-gold/20 border border-away-gold/50 text-away-gold"
           }`}
         >
           {saveMsg}
@@ -317,15 +317,15 @@ export default function Picks() {
         <div>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div>
-              <h2 className="text-xl font-bold text-white">Group Stage Picks</h2>
-              <p className="text-gray-400 text-sm mt-0.5">
+              <h2 className="text-xl font-bold text-away-cream">Group Stage Picks</h2>
+              <p className="text-away-cream/60 text-sm mt-0.5">
                 Rank the teams 1st through 4th in each group
               </p>
             </div>
             <div className="flex items-center gap-2">
               <div
                 className={`px-3 py-1.5 rounded-full text-sm font-bold ${
-                  allGroupsDone ? "bg-emerald-600 text-white" : "bg-gray-700 text-gray-300"
+                  allGroupsDone ? "bg-away-gold text-away-forest" : "bg-away-moss text-away-cream/70"
                 }`}
               >
                 {groupSavedCount} / 12 groups complete
@@ -355,8 +355,8 @@ export default function Picks() {
               disabled={!allGroupsDone}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-colors ${
                 allGroupsDone
-                  ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                  : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                  ? "bg-away-orange hover:bg-away-orange-light text-away-cream"
+                  : "bg-away-moss text-away-cream/30 cursor-not-allowed"
               }`}
             >
               Next: Thirds Picks
@@ -366,7 +366,7 @@ export default function Picks() {
             </button>
           </div>
           {!allGroupsDone && (
-            <p className="text-gray-500 text-xs text-right mt-2">
+            <p className="text-away-cream/40 text-xs text-right mt-2">
               Complete all 12 groups to continue
             </p>
           )}
@@ -377,8 +377,8 @@ export default function Picks() {
       {step === 2 && (
         <div>
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-white mb-1">Third-Place Teams</h2>
-            <p className="text-gray-400 text-sm">
+            <h2 className="text-xl font-bold text-away-cream mb-1">Third-Place Teams</h2>
+            <p className="text-away-cream/60 text-sm">
               In a 48-team World Cup, the best 8 of the 12 third-place teams advance to the
               knockout round. Select which 8 you think will qualify.
             </p>
@@ -396,7 +396,7 @@ export default function Picks() {
           <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
             <button
               onClick={() => setStep(1)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors border border-gray-700"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-away-green hover:bg-away-moss text-away-cream/80 font-medium transition-colors border border-away-moss"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -411,8 +411,8 @@ export default function Picks() {
                   disabled={savingThirds || (thirdsPick?.teams || []).length !== 8}
                   className={`px-5 py-2.5 rounded-lg font-bold transition-colors ${
                     (thirdsPick?.teams || []).length === 8
-                      ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
-                      : "bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700"
+                      ? "bg-away-moss hover:bg-away-green text-away-cream border border-away-moss"
+                      : "bg-away-green text-away-cream/30 cursor-not-allowed border border-away-moss/50"
                   }`}
                 >
                   {savingThirds ? "Saving..." : "Save Thirds"}
@@ -420,7 +420,7 @@ export default function Picks() {
               )}
               <button
                 onClick={() => setStep(3)}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold bg-away-orange hover:bg-away-orange-light text-away-cream transition-colors"
               >
                 Next: Bracket
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -436,8 +436,8 @@ export default function Picks() {
       {step === 3 && (
         <div>
           <div className="mb-4">
-            <h2 className="text-xl font-bold text-white mb-1">Knockout Bracket</h2>
-            <p className="text-gray-400 text-sm">
+            <h2 className="text-xl font-bold text-away-cream mb-1">Knockout Bracket</h2>
+            <p className="text-away-cream/60 text-sm">
               Click a team to advance them to the next round. Work from the outside in toward the
               champion.
             </p>
@@ -454,7 +454,7 @@ export default function Picks() {
           <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
             <button
               onClick={() => setStep(2)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors border border-gray-700"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-away-green hover:bg-away-moss text-away-cream/80 font-medium transition-colors border border-away-moss"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -466,11 +466,11 @@ export default function Picks() {
               <button
                 onClick={handleKnockoutSave}
                 disabled={savingKnockout}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-60"
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-bold bg-away-orange hover:bg-away-orange-light text-away-cream transition-colors disabled:opacity-60"
               >
                 {savingKnockout ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-away-cream border-t-transparent rounded-full animate-spin" />
                     Saving...
                   </>
                 ) : (

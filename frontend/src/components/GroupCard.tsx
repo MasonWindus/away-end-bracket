@@ -79,17 +79,17 @@ export default function GroupCard({ groupCode, teams, picks, onSave, locked }: G
 
   return (
     <div
-      className={`bg-gray-900 border rounded-xl p-4 flex flex-col gap-3 transition-colors ${
-        locked ? "border-gray-700 opacity-80" : isComplete ? "border-emerald-700/60" : "border-gray-700"
+      className={`bg-away-green border rounded-xl p-4 flex flex-col gap-3 transition-colors ${
+        locked ? "border-away-moss opacity-80" : isComplete ? "border-away-gold/50" : "border-away-moss"
       }`}
     >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-emerald-400 font-bold text-sm uppercase tracking-widest">
+        <h3 className="text-away-gold font-bold text-sm uppercase tracking-widest">
           Group {groupCode}
         </h3>
         {saved && !locked && (
-          <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
+          <span className="flex items-center gap-1 text-away-gold text-xs font-medium">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
@@ -114,20 +114,20 @@ export default function GroupCard({ groupCode, teams, picks, onSave, locked }: G
       <div className="space-y-2">
         {POSITIONS.map((_, posIdx) => (
           <div key={posIdx} className="flex items-center gap-2">
-            <span className="text-gray-500 text-xs font-medium w-16 shrink-0">
+            <span className="text-away-cream/50 text-xs font-medium w-16 shrink-0">
               {POSITION_LABELS[posIdx]}
             </span>
             {locked ? (
-              <div className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">
+              <div className="flex-1 bg-away-forest border border-away-moss rounded-lg px-3 py-2 text-sm text-away-cream/80">
                 {teams.find((t) => t.code === order[posIdx])?.name || (
-                  <span className="text-gray-500 italic">Not set</span>
+                  <span className="text-away-cream/30 italic">Not set</span>
                 )}
               </div>
             ) : (
               <select
                 value={order[posIdx]}
                 onChange={(e) => handleChange(posIdx, e.target.value)}
-                className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                className="flex-1 bg-away-forest border border-away-moss rounded-lg px-3 py-2 text-sm text-away-cream focus:outline-none focus:border-away-gold focus:ring-1 focus:ring-away-gold cursor-pointer"
               >
                 <option value="">-- Select team --</option>
                 {teams.map((team) => (
@@ -153,8 +153,8 @@ export default function GroupCard({ groupCode, teams, picks, onSave, locked }: G
           disabled={saving || !isComplete}
           className={`mt-1 w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
             isComplete
-              ? "bg-emerald-700 hover:bg-emerald-600 text-white"
-              : "bg-gray-700 text-gray-500 cursor-not-allowed"
+              ? "bg-away-gold hover:bg-away-gold-light text-away-forest"
+              : "bg-away-moss text-away-cream/30 cursor-not-allowed"
           } disabled:opacity-60`}
         >
           {saving ? "Saving..." : saved ? "✓ Saved" : "Save Group"}

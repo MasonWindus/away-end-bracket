@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-950 text-gray-100 min-h-screen;
+  @apply bg-away-forest text-away-cream min-h-screen font-ui;
 }
 
 /* Custom scrollbar */
@@ -11,13 +11,13 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-gray-900;
+  @apply bg-away-green;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
+  @apply bg-away-moss rounded-full;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-emerald-600;
+  @apply bg-away-gold;
 }
 
 /* Bracket animations */
