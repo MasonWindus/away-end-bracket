@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { SoccerBallIcon } from "../components/SoccerBallIcon";
 
 const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
 
@@ -58,20 +59,20 @@ export default function Home() {
         />
         <div className="relative max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-away-gold/10 border border-away-gold/30 rounded-full px-4 py-1.5 mb-6">
-            <span className="text-away-gold text-sm font-semibold tracking-wide">FIFA World Cup 2026</span>
+            <span className="text-away-gold text-sm font-semibold tracking-wide">The Away End</span>
           </div>
 
           <h1 className="font-display text-6xl sm:text-8xl tracking-widest text-away-gold leading-none mb-2">
-            THE AWAY END
+            WORLD CUP 2026
           </h1>
           <p className="font-display text-3xl sm:text-4xl tracking-widest text-away-cream/90 mb-6">
             Bracket Contest
           </p>
 
           <p className="text-away-cream/70 text-lg sm:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
-            Hosted by <span className="text-away-cream font-semibold">John Green</span> &amp;{" "}
-            <span className="text-away-cream font-semibold">Daniel Alarcón</span> — the soccer podcast for people who
-            love the beautiful game. Predict the World Cup 2026 winner and compete with the Away End community.
+            48 teams. 12 groups. One champion. Predict the standings, pick your way through every knockout
+            round, and crown a winner before the first whistle blows — then follow along all summer to see
+            how you stack up.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -80,7 +81,7 @@ export default function Home() {
                 to="/picks"
                 className="inline-flex items-center justify-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors shadow-lg shadow-away-forest/50"
               >
-                <span>⚽</span>
+                <SoccerBallIcon className="w-5 h-5" />
                 Fill Out My Bracket
               </Link>
             ) : (
@@ -88,7 +89,7 @@ export default function Home() {
                 to="/register"
                 className="inline-flex items-center justify-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors shadow-lg shadow-away-forest/50"
               >
-                <span>⚽</span>
+                <SoccerBallIcon className="w-5 h-5" />
                 Join the Contest
               </Link>
             )}
