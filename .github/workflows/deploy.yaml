@@ -58,10 +58,7 @@ jobs:
       - name: Print stack outputs
         run: |
           echo "=== Stack Outputs ==="
-          cat cdk-outputs.json | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          stack = list(data.values())[0]
-          for k, v in stack.items():
-              print(f'  {k}: {v}')
-          "
+          aws cloudformation describe-stacks \
+            --stack-name AwayEndBracketStack \
+            --query 'Stacks[0].Outputs' \
+            --output table
