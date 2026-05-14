@@ -7,8 +7,6 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as ses from 'aws-cdk-lib/aws-ses';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -36,17 +34,17 @@ export class AwayEndBracketStack extends cdk.Stack {
 
     // ─── SSM Parameters (create these manually before deploy) ─────────────────
     // aws ssm put-parameter --name /away-end/jwt-secret --value "your-secret" --type String
-    // aws ssm put-parameter --name /away-end/from-email --value "noreply@yourdomain.com" --type String
+    // aws ssm put-parameter --name /away-end/resend-api-key --value "re_..." --type String
     // aws ssm put-parameter --name /away-end/frontend-url --value "https://yourdomain.com" --type String
     const jwtSecret = ssm.StringParameter.fromStringParameterName(
       this,
       'JwtSecret',
       '/away-end/jwt-secret'
     );
-    const fromEmail = ssm.StringParameter.fromStringParameterName(
+    const resendApiKey = ssm.StringParameter.fromStringParameterName(
       this,
-      'FromEmail',
-      '/away-end/from-email'
+      'ResendApiKey',
+      '/away-end/resend-api-key'
     );
     const frontendUrl = ssm.StringParameter.fromStringParameterName(
       this,
@@ -65,7 +63,7 @@ export class AwayEndBracketStack extends cdk.Stack {
       environment: {
         DYNAMODB_TABLE: table.tableName,
         JWT_SECRET: jwtSecret.stringValue,
-        FROM_EMAIL: fromEmail.stringValue,
+        RESEND_API_KEY: resendApiKey.stringValue,
         FRONTEND_URL: frontendUrl.stringValue,
         NODE_ENV: 'production',
       },
@@ -74,17 +72,9 @@ export class AwayEndBracketStack extends cdk.Stack {
     // Grant Lambda access to DynamoDB
     table.grantReadWriteData(apiLambda);
 
-    // Grant Lambda access to SES for sending magic link emails
-    apiLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-        resources: ['*'],
-      })
-    );
-
     // Grant Lambda access to SSM parameters
     jwtSecret.grantRead(apiLambda);
-    fromEmail.grantRead(apiLambda);
+    resendApiKey.grantRead(apiLambda);
     frontendUrl.grantRead(apiLambda);
 
     // ─── API Gateway ──────────────────────────────────────────────────────────
