@@ -53,7 +53,7 @@ jobs:
         run: |
           cd infrastructure && npx cdk deploy AwayEndBracketStack \
             --require-approval never \
-            --outputs-file ../cdk-outputs.json
+            --outputs-file $GITHUB_WORKSPACE/cdk-outputs.json
 
       - name: Print stack outputs
         run: |
