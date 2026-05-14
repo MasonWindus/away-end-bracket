@@ -125,18 +125,18 @@ export const TEAM_NAMES: Record<string, string> = {
 };
 
 export const TEAM_FLAGS: Record<string, string> = {
-  MEX: "🇲🇽", RSA: "🇿🇦", KOR: "🇰🇷", CZE: "🇨🇿",
-  CAN: "🇨🇦", BIH: "🇧🇦", QAT: "🇶🇦", SUI: "🇨🇭",
-  BRA: "🇧🇷", MAR: "🇲🇦", HTI: "🇭🇹", SCO: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-  USA: "🇺🇸", PAR: "🇵🇾", AUS: "🇦🇺", TUR: "🇹🇷",
-  GER: "🇩🇪", CIV: "🇨🇮", ECU: "🇪🇨", CUW: "🇨🇼",
-  NED: "🇳🇱", SWE: "🇸🇪", TUN: "🇹🇳", JPN: "🇯🇵",
-  BEL: "🇧🇪", EGY: "🇪🇬", IRN: "🇮🇷", NZL: "🇳🇿",
-  ESP: "🇪🇸", CPV: "🇨🇻", KSA: "🇸🇦", URU: "🇺🇾",
-  FRA: "🇫🇷", SEN: "🇸🇳", IRQ: "🇮🇶", NOR: "🇳🇴",
-  ARG: "🇦🇷", ALG: "🇩🇿", AUT: "🇦🇹", JOR: "🇯🇴",
-  POR: "🇵🇹", COD: "🇨🇩", UZB: "🇺🇿", COL: "🇨🇴",
-  ENG: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", CRO: "🇭🇷", GHA: "🇬🇭", PAN: "🇵🇦",
+  MEX: "mx",  RSA: "za",     KOR: "kr",     CZE: "cz",
+  CAN: "ca",  BIH: "ba",     QAT: "qa",     SUI: "ch",
+  BRA: "br",  MAR: "ma",     HTI: "ht",     SCO: "gb-sct",
+  USA: "us",  PAR: "py",     AUS: "au",     TUR: "tr",
+  GER: "de",  CIV: "ci",     ECU: "ec",     CUW: "cw",
+  NED: "nl",  SWE: "se",     TUN: "tn",     JPN: "jp",
+  BEL: "be",  EGY: "eg",     IRN: "ir",     NZL: "nz",
+  ESP: "es",  CPV: "cv",     KSA: "sa",     URU: "uy",
+  FRA: "fr",  SEN: "sn",     IRQ: "iq",     NOR: "no",
+  ARG: "ar",  ALG: "dz",     AUT: "at",     JOR: "jo",
+  POR: "pt",  COD: "cd",     UZB: "uz",     COL: "co",
+  ENG: "gb-eng", CRO: "hr", GHA: "gh",     PAN: "pa",
 };
 
 export const GROUP_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;

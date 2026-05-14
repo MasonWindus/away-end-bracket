@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { GROUPS, TEAM_FLAGS } from "../data/teams";
+import { GROUPS } from "../data/teams";
+import TeamFlag from "../components/TeamFlag";
 
 const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
 
@@ -181,7 +182,7 @@ export default function Home() {
                 <ul className="space-y-1">
                   {teams.map((t) => (
                     <li key={t.code} className="text-away-cream/80 text-xs flex items-center gap-1.5">
-                      <span>{TEAM_FLAGS[t.code]}</span>
+                      <TeamFlag code={t.code} />
                       <span>{t.name}</span>
                     </li>
                   ))}

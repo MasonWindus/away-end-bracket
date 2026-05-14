@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getUserBracket } from "../lib/api";
-import { GROUPS, GROUP_CODES, TEAM_NAMES, TEAM_FLAGS } from "../data/teams";
+import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
+import TeamFlag from "../components/TeamFlag";
 import type { PublicBracket, GroupPick, KnockoutPicks } from "../types";
 import BracketView from "../components/BracketView";
 
@@ -56,7 +57,7 @@ function GroupPickReadOnly({ pick }: { pick: GroupPick }) {
             <li key={i} className="flex items-center gap-2">
               <span className="text-gray-500 text-xs w-7 shrink-0">{labels[i]}</span>
               <span className="text-sm text-gray-200 flex items-center gap-1.5">
-                {team ? <>{TEAM_FLAGS[team]} {TEAM_NAMES[team] || team}</> : <span className="text-gray-600 italic">—</span>}
+                {team ? <><TeamFlag code={team} /> {TEAM_NAMES[team] || team}</> : <span className="text-gray-600 italic">—</span>}
               </span>
             </li>
           ))}
