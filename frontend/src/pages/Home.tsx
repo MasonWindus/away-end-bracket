@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { SoccerBallIcon } from "../components/SoccerBallIcon";
 import { GROUPS, TEAM_FLAGS } from "../data/teams";
 
 const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
@@ -50,14 +49,11 @@ export default function Home() {
     <div className="min-h-screen bg-away-forest">
       {/* Hero */}
       <section className="relative overflow-hidden py-20 sm:py-28 px-4">
-        {/* Subtle pitch-line grid */}
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg,transparent,transparent 40px,#F2C200 40px,#F2C200 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,#F2C200 40px,#F2C200 41px)",
-          }}
-        />
+        {/* Stadium background */}
+        <div className="absolute inset-0">
+          <img src="/background.png" alt="" className="w-full h-full object-cover" aria-hidden="true" />
+          <div className="absolute inset-0 bg-away-forest/80 backdrop-blur-sm" />
+        </div>
         <div className="relative max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-away-gold/10 border border-away-gold/30 rounded-full px-4 py-1.5 mb-6">
             <span className="text-away-gold text-sm font-semibold tracking-wide">The Away End</span>
@@ -82,7 +78,7 @@ export default function Home() {
                 to="/picks"
                 className="inline-flex items-center justify-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors shadow-lg shadow-away-forest/50"
               >
-                <SoccerBallIcon className="w-5 h-5" />
+                <img src="/favicon.png" alt="" className="w-5 h-5 object-contain" aria-hidden="true" />
                 Fill Out My Bracket
               </Link>
             ) : (
@@ -90,7 +86,7 @@ export default function Home() {
                 to="/register"
                 className="inline-flex items-center justify-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors shadow-lg shadow-away-forest/50"
               >
-                <SoccerBallIcon className="w-5 h-5" />
+                <img src="/favicon.png" alt="" className="w-5 h-5 object-contain" aria-hidden="true" />
                 Join the Contest
               </Link>
             )}

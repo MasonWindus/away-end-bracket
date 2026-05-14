@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { logout } from "../lib/api";
-import { SoccerBallIcon } from "./SoccerBallIcon";
 
 export default function Navbar() {
   const { user, refetch } = useAuth();
@@ -30,7 +29,7 @@ export default function Navbar() {
             className="flex items-center gap-2 text-away-cream hover:text-away-gold transition-colors"
             onClick={() => setMenuOpen(false)}
           >
-            <SoccerBallIcon className="w-7 h-7" />
+            <img src="/favicon.png" alt="" className="w-7 h-7 object-contain" aria-hidden="true" />
             <span className="font-display text-2xl tracking-widest text-away-gold leading-none">
               THE AWAY END
             </span>
