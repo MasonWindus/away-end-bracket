@@ -1,6 +1,7 @@
 import React from "react";
 import type { KnockoutPicks } from "../types";
-import { TEAM_NAMES, TEAM_FLAGS } from "../data/teams";
+import { TEAM_NAMES } from "../data/teams";
+import TeamFlag from "./TeamFlag";
 
 interface BracketViewProps {
   /** 32 team codes in bracket order (index 0-31, pair i*2 vs i*2+1 = match i+1) */
@@ -100,7 +101,7 @@ function TeamButton({ code, isWinner, isLoser, isTBD, disabled, onClick, compact
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         )}
-        {!isTBD && code && <span className="shrink-0 leading-none">{TEAM_FLAGS[code]}</span>}
+        {!isTBD && code && <span className="shrink-0 leading-none"><TeamFlag code={code} /></span>}
         <span className="truncate">{isTBD || !code ? "TBD" : displayName}</span>
       </span>
     </button>
@@ -301,7 +302,7 @@ export default function BracketView({
           <span className="text-2xl">🏆</span>
           <div>
             <p className="text-away-gold text-xs font-bold uppercase tracking-wider">Your Champion Pick</p>
-            <p className="text-away-cream font-bold text-lg">{TEAM_FLAGS[picks.Champion]} {teamName(picks.Champion)}</p>
+            <p className="text-away-cream font-bold text-lg flex items-center gap-1.5"><TeamFlag code={picks.Champion} /> {teamName(picks.Champion)}</p>
           </div>
         </div>
       )}

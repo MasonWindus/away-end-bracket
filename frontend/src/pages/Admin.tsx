@@ -9,7 +9,8 @@ import {
   recalculate,
   getAdminUsers,
 } from "../lib/api";
-import { GROUPS, GROUP_CODES, TEAM_NAMES, TEAM_FLAGS } from "../data/teams";
+import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
+import TeamFlag from "../components/TeamFlag";
 import type { GroupCode, GroupResult, ThirdsResult, AdminUser } from "../types";
 
 type Tab = "groups" | "thirds" | "knockout" | "recalculate" | "users";
@@ -190,7 +191,7 @@ function ThirdsResultSection({ onSaved }: { onSaved: () => void }) {
                   }`}
                 >
                   <div className="text-xs text-emerald-400 font-bold">Grp {code}</div>
-                  <div className="font-medium flex items-center gap-1.5"><span>{TEAM_FLAGS[team.code]}</span>{team.name}</div>
+                  <div className="font-medium flex items-center gap-1.5"><TeamFlag code={team.code} />{team.name}</div>
                 </button>
               );
             });
@@ -212,7 +213,7 @@ function ThirdsResultSection({ onSaved }: { onSaved: () => void }) {
                 >
                   <option value="">-- Assign team --</option>
                   {selected.map((code) => (
-                    <option key={code} value={code}>{TEAM_FLAGS[code]} {TEAM_NAMES[code] || code}</option>
+                    <option key={code} value={code}>{TEAM_NAMES[code] || code}</option>
                   ))}
                 </select>
               </div>
