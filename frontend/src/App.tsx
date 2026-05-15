@@ -40,7 +40,7 @@ function ProtectedRoute({
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-away-forest">
       <Navbar />
       <main>
         <Routes>
