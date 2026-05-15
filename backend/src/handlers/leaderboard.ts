@@ -66,6 +66,7 @@ async function getLeaderboard(): Promise<APIGatewayProxyResult> {
         group_stage_score: scoresItem?.group_stage_score ?? 0,
         knockout_score: scoresItem?.knockout_score ?? 0,
         total_score: scoresItem?.total_score ?? 0,
+        is_pinned: user.is_pinned ?? false,
       };
     })
   );

@@ -10,6 +10,8 @@ export default function LeaderboardPage() {
   const [search, setSearch] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  const pinned = entries.filter((e) => e.is_pinned);
+
   async function load() {
     setLoading(true);
     setError(null);
@@ -139,6 +141,49 @@ export default function LeaderboardPage() {
           >
             Clear search
           </button>
+        </div>
+      )}
+
+      {/* Hosts spotlight */}
+      {!loading && !error && pinned.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-away-gold font-display tracking-widest text-sm uppercase">The Hosts</span>
+            <div className="flex-1 h-px bg-away-gold/20" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pinned.map((entry) => (
+              <div
+                key={entry.userId}
+                className="bg-away-green border border-away-gold/40 rounded-xl p-4 flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-away-cream font-bold text-base leading-tight">{entry.display_name}</span>
+                  <span className="text-away-cream/50 text-sm font-bold shrink-0">#{entry.rank}</span>
+                </div>
+                <div className="flex gap-4 text-xs">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-away-cream/40 uppercase tracking-wider">GS</span>
+                    <span className="text-away-cream/80 tabular-nums font-medium">{entry.group_stage_score}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-away-cream/40 uppercase tracking-wider">KO</span>
+                    <span className="text-away-cream/80 tabular-nums font-medium">{entry.knockout_score}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-away-gold/80 uppercase tracking-wider">Total</span>
+                    <span className="text-away-gold font-bold tabular-nums text-sm">{entry.total_score}</span>
+                  </div>
+                </div>
+                <Link
+                  to={`/bracket/${entry.userId}`}
+                  className="text-xs text-away-gold/70 hover:text-away-gold underline transition-colors self-start"
+                >
+                  View bracket
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

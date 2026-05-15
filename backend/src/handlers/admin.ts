@@ -92,6 +92,17 @@ export async function handleAdmin(
       return await deleteMatch(decodeURIComponent(deleteMatchMatch[1]));
     }
 
+    // POST /api/admin/users/:userId/pin
+    const pinMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/pin$/);
+    if (method === "POST" && pinMatch) {
+      return await pinUser(pinMatch[1]);
+    }
+
+    // DELETE /api/admin/users/:userId/pin
+    if (method === "DELETE" && pinMatch) {
+      return await unpinUser(pinMatch[1]);
+    }
+
     return errorResponse(404, "Not found");
   } catch (err) {
     if (err instanceof AuthError) {
@@ -537,6 +548,31 @@ async function deleteMatch(matchId: string): Promise<APIGatewayProxyResult> {
   return response(200, { message: "Match result deleted" });
 }
 
+async function pinUser(userId: string): Promise<APIGatewayProxyResult> {
+  const userItem = await getItem({ PK: `USER#${userId}`, SK: `USER#${userId}` }) as UserItem | undefined;
+  if (!userItem) return errorResponse(404, "User not found");
+
+  await updateItem({
+    Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
+    UpdateExpression: "SET is_pinned = :val",
+    ExpressionAttributeValues: { ":val": true },
+  });
+
+  return response(200, { message: "User pinned" });
+}
+
+async function unpinUser(userId: string): Promise<APIGatewayProxyResult> {
+  const userItem = await getItem({ PK: `USER#${userId}`, SK: `USER#${userId}` }) as UserItem | undefined;
+  if (!userItem) return errorResponse(404, "User not found");
+
+  await updateItem({
+    Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
+    UpdateExpression: "REMOVE is_pinned",
+  });
+
+  return response(200, { message: "User unpinned" });
+}
+
 async function getUsers(): Promise<APIGatewayProxyResult> {
   // Scan all USER items
   const userItems = await scanItems({
@@ -575,6 +611,7 @@ async function getUsers(): Promise<APIGatewayProxyResult> {
         display_name: user.display_name,
         email: user.email,
         is_admin: user.is_admin,
+        is_pinned: user.is_pinned ?? false,
         has_group_picks: groupsComplete,
         has_thirds_picks: thirdsComplete,
         has_knockout_picks: knockoutComplete,

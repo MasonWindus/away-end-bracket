@@ -87,6 +87,7 @@ export interface LeaderboardEntry {
   group_stage_score: number;
   knockout_score: number;
   total_score: number;
+  is_pinned?: boolean;
 }
 
 // DynamoDB item shapes
@@ -99,6 +100,7 @@ export interface UserItem {
   display_name: string;
   email: string;
   is_admin: boolean;
+  is_pinned?: boolean;
   created_at: string;
 }
 

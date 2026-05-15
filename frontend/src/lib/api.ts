@@ -195,3 +195,11 @@ export async function deleteMatch(matchId: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export async function pinUser(userId: string): Promise<{ message: string }> {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/pin`, { method: "POST" });
+}
+
+export async function unpinUser(userId: string): Promise<{ message: string }> {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/pin`, { method: "DELETE" });
+}

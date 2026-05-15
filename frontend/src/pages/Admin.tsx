@@ -11,6 +11,8 @@ import {
   getMatches,
   submitMatch,
   deleteMatch,
+  pinUser,
+  unpinUser,
 } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
 import TeamFlag from "../components/TeamFlag";
@@ -673,15 +675,17 @@ export default function Admin() {
                       <th className="text-center py-2 pr-4 font-medium">Groups</th>
                       <th className="text-center py-2 pr-4 font-medium">Thirds</th>
                       <th className="text-center py-2 pr-4 font-medium">Bracket</th>
-                      <th className="text-right py-2 font-medium">Score</th>
+                      <th className="text-right py-2 pr-4 font-medium">Score</th>
+                      <th className="text-center py-2 font-medium">Pin</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
                     {adminUsers.map((u) => (
-                      <tr key={u.id} className="text-gray-300 hover:bg-gray-800/40">
+                      <tr key={u.id} className={`text-gray-300 hover:bg-gray-800/40 ${u.is_pinned ? "bg-yellow-900/10" : ""}`}>
                         <td className="py-2 pr-4">
                           {u.display_name}
                           {u.id === user.id && <span className="text-emerald-400 text-xs ml-2">(you)</span>}
+                          {u.is_pinned && <span className="text-yellow-400 text-xs ml-2">📌 Host</span>}
                         </td>
                         <td className="py-2 pr-4 text-gray-400 text-xs">{u.email}</td>
                         <td className="py-2 pr-4 text-center">
@@ -693,12 +697,36 @@ export default function Admin() {
                         <td className="py-2 pr-4 text-center">
                           {u.has_knockout_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
                         </td>
-                        <td className="py-2 text-right font-medium">{u.total_score}</td>
+                        <td className="py-2 pr-4 text-right font-medium">{u.total_score}</td>
+                        <td className="py-2 text-center">
+                          <button
+                            onClick={async () => {
+                              try {
+                                if (u.is_pinned) {
+                                  await unpinUser(u.id);
+                                } else {
+                                  await pinUser(u.id);
+                                }
+                                await loadUsers();
+                              } catch (err: unknown) {
+                                alert(err instanceof Error ? err.message : "Error");
+                              }
+                            }}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                              u.is_pinned
+                                ? "bg-yellow-800/60 text-yellow-300 hover:bg-yellow-800"
+                                : "bg-gray-700 text-gray-400 hover:text-yellow-300 hover:bg-gray-600"
+                            }`}
+                            title={u.is_pinned ? "Remove from Hosts" : "Pin as Host"}
+                          >
+                            {u.is_pinned ? "Unpin" : "Pin"}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {adminUsers.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-gray-500">No users yet.</td>
+                        <td colSpan={7} className="py-8 text-center text-gray-500">No users yet.</td>
                       </tr>
                     )}
                   </tbody>
