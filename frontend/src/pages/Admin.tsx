@@ -8,12 +8,15 @@ import {
   submitKnockoutResult,
   recalculate,
   getAdminUsers,
+  getMatches,
+  submitMatch,
+  deleteMatch,
 } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
 import TeamFlag from "../components/TeamFlag";
-import type { GroupCode, GroupResult, ThirdsResult, AdminUser } from "../types";
+import type { GroupCode, GroupResult, ThirdsResult, AdminUser, MatchResult } from "../types";
 
-type Tab = "groups" | "thirds" | "knockout" | "recalculate" | "users";
+type Tab = "matches" | "groups" | "thirds" | "knockout" | "recalculate" | "users";
 
 // ─── Group Results Section ────────────────────────────────────────────────────
 function GroupResultsSection({ groupResults, onResultSaved }: {
@@ -115,6 +118,191 @@ function GroupResultsSection({ groupResults, onResultSaved }: {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Match Results Section ────────────────────────────────────────────────────
+function MatchResultsSection() {
+  const [matches, setMatches] = useState<MatchResult[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<GroupCode>("A");
+  const [homeTeam, setHomeTeam] = useState("");
+  const [awayTeam, setAwayTeam] = useState("");
+  const [homeGoals, setHomeGoals] = useState("");
+  const [awayGoals, setAwayGoals] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  async function loadMatches() {
+    setLoading(true);
+    try {
+      setMatches(await getMatches());
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadMatches(); }, []);
+
+  const groupTeams = GROUPS[selectedGroup] || [];
+  const availableAway = groupTeams.filter((t) => t.code !== homeTeam);
+
+  async function handleSave() {
+    if (!homeTeam || !awayTeam) { setMessage("Select both teams."); return; }
+    if (homeTeam === awayTeam) { setMessage("Teams must be different."); return; }
+    const hg = parseInt(homeGoals, 10);
+    const ag = parseInt(awayGoals, 10);
+    if (isNaN(hg) || isNaN(ag) || hg < 0 || ag < 0) {
+      setMessage("Goals must be non-negative numbers.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      await submitMatch({ group_code: selectedGroup, home_team: homeTeam, away_team: awayTeam, home_goals: hg, away_goals: ag });
+      setMessage("✓ Match result saved");
+      setHomeTeam(""); setAwayTeam(""); setHomeGoals(""); setAwayGoals("");
+      await loadMatches();
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Error saving");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(matchId: string) {
+    if (!confirm("Delete this match result?")) return;
+    try {
+      await deleteMatch(matchId);
+      setMatches((prev) => prev.filter((m) => m.match_id !== matchId));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error deleting");
+    }
+  }
+
+  const matchesByGroup = GROUP_CODES.reduce<Record<string, MatchResult[]>>((acc, g) => {
+    acc[g] = matches.filter((m) => m.group_code === g);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-8">
+      <p className="text-gray-400 text-sm">
+        Enter individual match scores as games are played. Scores are used to calculate provisional group
+        standings for any group where final results haven't been set yet. Hit <strong className="text-white">Recalculate Scores</strong> after
+        entering results to update the leaderboard.
+      </p>
+
+      {/* Entry form */}
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
+        <h3 className="text-white font-semibold">Enter Match Result</h3>
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="space-y-1">
+            <label className="text-gray-400 text-xs">Group</label>
+            <select
+              value={selectedGroup}
+              onChange={(e) => { setSelectedGroup(e.target.value as GroupCode); setHomeTeam(""); setAwayTeam(""); }}
+              className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+            >
+              {GROUP_CODES.map((g) => <option key={g} value={g}>Group {g}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-gray-400 text-xs">Home Team</label>
+            <select
+              value={homeTeam}
+              onChange={(e) => { setHomeTeam(e.target.value); setAwayTeam(""); }}
+              className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+            >
+              <option value="">-- Select --</option>
+              {groupTeams.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1 w-16">
+            <label className="text-gray-400 text-xs">Goals</label>
+            <input
+              type="number" min="0" value={homeGoals}
+              onChange={(e) => setHomeGoals(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-2 text-sm text-white text-center focus:outline-none focus:border-emerald-500"
+              placeholder="0"
+            />
+          </div>
+          <span className="text-gray-500 text-lg font-bold pb-1">–</span>
+          <div className="space-y-1 w-16">
+            <label className="text-gray-400 text-xs">Goals</label>
+            <input
+              type="number" min="0" value={awayGoals}
+              onChange={(e) => setAwayGoals(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-2 text-sm text-white text-center focus:outline-none focus:border-emerald-500"
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-gray-400 text-xs">Away Team</label>
+            <select
+              value={awayTeam}
+              onChange={(e) => setAwayTeam(e.target.value)}
+              disabled={!homeTeam}
+              className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+            >
+              <option value="">-- Select --</option>
+              {availableAway.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
+            </select>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+          >
+            {saving ? "Saving..." : "Save Result"}
+          </button>
+        </div>
+        {message && (
+          <p className={`text-sm ${message.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{message}</p>
+        )}
+      </div>
+
+      {/* Entered matches grouped by group */}
+      {loading ? (
+        <div className="text-emerald-400 animate-pulse text-sm">Loading matches...</div>
+      ) : (
+        <div className="space-y-4">
+          {GROUP_CODES.map((g) => {
+            const gMatches = matchesByGroup[g];
+            if (gMatches.length === 0) return null;
+            return (
+              <div key={g} className="bg-gray-900 border border-gray-700 rounded-xl p-4">
+                <h4 className="text-emerald-400 font-bold text-xs uppercase tracking-wider mb-3">Group {g}</h4>
+                <div className="space-y-2">
+                  {gMatches.map((m) => (
+                    <div key={m.match_id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-white">
+                        <TeamFlag code={m.home_team} />
+                        <span className="font-medium">{TEAM_NAMES[m.home_team] || m.home_team}</span>
+                        <span className="tabular-nums font-bold text-emerald-400 mx-1">{m.home_goals} – {m.away_goals}</span>
+                        <span className="font-medium">{TEAM_NAMES[m.away_team] || m.away_team}</span>
+                        <TeamFlag code={m.away_team} />
+                      </div>
+                      <button
+                        onClick={() => handleDelete(m.match_id)}
+                        className="text-gray-500 hover:text-red-400 text-xs ml-4 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {matches.length === 0 && (
+            <p className="text-gray-500 text-sm">No match results entered yet.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -319,7 +507,7 @@ function KnockoutResultSection({ onSaved }: { onSaved: () => void }) {
 export default function Admin() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("groups");
+  const [tab, setTab] = useState<Tab>("matches");
   const [groupResults, setGroupResults] = useState<Record<string, GroupResult>>({});
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -382,7 +570,8 @@ export default function Admin() {
   if (!user?.is_admin) return null;
 
   const tabs: Array<{ id: Tab; label: string }> = [
-    { id: "groups", label: "Group Results" },
+    { id: "matches", label: "Match Results" },
+    { id: "groups", label: "Final Group Standings" },
     { id: "thirds", label: "Third-Place Teams" },
     { id: "knockout", label: "Knockout Results" },
     { id: "recalculate", label: "Recalculate" },
@@ -414,6 +603,13 @@ export default function Admin() {
       </div>
 
       <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6">
+        {tab === "matches" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-4">Match Results</h2>
+            <MatchResultsSection />
+          </>
+        )}
+
         {tab === "groups" && (
           <>
             <h2 className="text-xl font-bold text-white mb-4">Group Stage Results</h2>

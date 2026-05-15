@@ -1,13 +1,16 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
+import { deleteItem, getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
 import { AuthError, errorResponse, requireAdmin, response } from "../lib/middleware";
 import { calculateAllScores } from "../lib/scoring";
+import { computeGroupStandings } from "../lib/standings";
 import {
   GroupCode,
   GroupPickItem,
   GroupResultItem,
   KnockoutPicksItem,
   KnockoutResultItem,
+  MatchResult,
+  MatchResultItem,
   ScoreBreakdown,
   ScoresItem,
   ThirdsPickItem,
@@ -71,6 +74,22 @@ export async function handleAdmin(
     // GET /api/admin/users
     if (method === "GET" && path === "/api/admin/users") {
       return await getUsers();
+    }
+
+    // GET /api/admin/matches
+    if (method === "GET" && path === "/api/admin/matches") {
+      return await getMatches();
+    }
+
+    // POST /api/admin/matches
+    if (method === "POST" && path === "/api/admin/matches") {
+      return await postMatch(event);
+    }
+
+    // DELETE /api/admin/matches/:matchId
+    const deleteMatchMatch = path.match(/^\/api\/admin\/matches\/(.+)$/);
+    if (method === "DELETE" && deleteMatchMatch) {
+      return await deleteMatch(decodeURIComponent(deleteMatchMatch[1]));
     }
 
     return errorResponse(404, "Not found");
@@ -283,8 +302,8 @@ async function postKnockoutResult(
 }
 
 async function recalculateScores(): Promise<APIGatewayProxyResult> {
-  // Fetch all results first
-  const [allGroupResultsArr, thirdsResultRaw, knockoutResultRaw] = await Promise.all([
+  // Fetch all results + match results in parallel
+  const [allGroupResultsArr, thirdsResultRaw, knockoutResultRaw, allMatchItems] = await Promise.all([
     Promise.all(
       GROUP_CODES.map((code) =>
         getItem({ PK: `RESULT#GROUP#${code}`, SK: "RESULT" })
@@ -292,12 +311,32 @@ async function recalculateScores(): Promise<APIGatewayProxyResult> {
     ),
     getItem({ PK: "RESULT#THIRDS", SK: "RESULT" }),
     getItem({ PK: "RESULT#KNOCKOUT", SK: "RESULT" }),
+    scanItems({
+      FilterExpression: "begins_with(PK, :prefix)",
+      ExpressionAttributeValues: { ":prefix": "MATCH#GROUP#" },
+    }),
   ]);
+
+  // Build final results map, filling gaps with provisional standings from matches
+  const matchesByGroup = (allMatchItems as unknown as MatchResultItem[]).reduce<Record<GroupCode, MatchResult[]>>(
+    (acc, item) => {
+      const code = item.group_code;
+      if (!acc[code]) acc[code] = [];
+      acc[code].push(item as unknown as MatchResult);
+      return acc;
+    },
+    {} as Record<GroupCode, MatchResult[]>
+  );
 
   const allGroupResults = GROUP_CODES.reduce<Record<GroupCode, GroupResult>>(
     (acc, code, idx) => {
       const raw = allGroupResultsArr[idx];
-      if (raw) acc[code] = raw as unknown as GroupResult;
+      if (raw) {
+        acc[code] = raw as unknown as GroupResult;
+      } else {
+        const provisional = computeGroupStandings(code, matchesByGroup[code] ?? []);
+        if (provisional) acc[code] = provisional;
+      }
       return acc;
     },
     {} as Record<GroupCode, GroupResult>
@@ -394,6 +433,108 @@ async function recalculateScores(): Promise<APIGatewayProxyResult> {
   }
 
   return response(200, { processed });
+}
+
+async function getMatches(): Promise<APIGatewayProxyResult> {
+  const items = await scanItems({
+    FilterExpression: "begins_with(PK, :prefix)",
+    ExpressionAttributeValues: { ":prefix": "MATCH#GROUP#" },
+  }) as unknown as MatchResultItem[];
+
+  const matches = items.map((item) => ({
+    match_id: item.match_id,
+    group_code: item.group_code,
+    home_team: item.home_team,
+    away_team: item.away_team,
+    home_goals: item.home_goals,
+    away_goals: item.away_goals,
+    entered_at: item.entered_at,
+  }));
+
+  matches.sort((a, b) => a.group_code.localeCompare(b.group_code) || a.match_id.localeCompare(b.match_id));
+
+  return response(200, { matches });
+}
+
+async function postMatch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  let body: {
+    group_code?: string;
+    home_team?: string;
+    away_team?: string;
+    home_goals?: number;
+    away_goals?: number;
+  };
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return errorResponse(400, "Invalid JSON body");
+  }
+
+  const { group_code, home_team, away_team } = body;
+  const home_goals = body.home_goals;
+  const away_goals = body.away_goals;
+
+  if (!group_code || !isValidGroupCode(group_code)) {
+    return errorResponse(400, "Valid group_code (A–L) is required");
+  }
+  if (!home_team || !away_team) {
+    return errorResponse(400, "home_team and away_team are required");
+  }
+  if (home_team === away_team) {
+    return errorResponse(400, "home_team and away_team must be different");
+  }
+  if (typeof home_goals !== "number" || typeof away_goals !== "number" ||
+      !Number.isInteger(home_goals) || !Number.isInteger(away_goals) ||
+      home_goals < 0 || away_goals < 0) {
+    return errorResponse(400, "home_goals and away_goals must be non-negative integers");
+  }
+
+  const groupTeams = GROUPS[group_code as GroupCode].map((t) => t.code);
+  if (!groupTeams.includes(home_team) || !groupTeams.includes(away_team)) {
+    return errorResponse(400, `Both teams must belong to group ${group_code}`);
+  }
+
+  // Deterministic match_id regardless of which team is "home" in the lookup
+  const [t1, t2] = [home_team, away_team].sort();
+  const match_id = `${group_code}_${t1}_${t2}`;
+  const now = new Date().toISOString();
+
+  const item: MatchResultItem = {
+    PK: `MATCH#GROUP#${group_code}`,
+    SK: `MATCH#${match_id}`,
+    match_id,
+    group_code: group_code as GroupCode,
+    home_team,
+    away_team,
+    home_goals,
+    away_goals,
+    entered_at: now,
+  };
+
+  await putItem(item as unknown as Record<string, unknown>);
+
+  return response(200, {
+    match: { match_id, group_code, home_team, away_team, home_goals, away_goals, entered_at: now },
+  });
+}
+
+async function deleteMatch(matchId: string): Promise<APIGatewayProxyResult> {
+  // match_id format: "{group}_{t1}_{t2}"
+  const parts = matchId.split("_");
+  if (parts.length < 3) {
+    return errorResponse(400, "Invalid match_id format");
+  }
+  const group_code = parts[0];
+  if (!isValidGroupCode(group_code)) {
+    return errorResponse(400, "Invalid group code in match_id");
+  }
+
+  await deleteItem({
+    PK: `MATCH#GROUP#${group_code}`,
+    SK: `MATCH#${matchId}`,
+  });
+
+  return response(200, { message: "Match result deleted" });
 }
 
 async function getUsers(): Promise<APIGatewayProxyResult> {

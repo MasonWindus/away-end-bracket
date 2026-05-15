@@ -187,3 +187,25 @@ export interface ScoresItem {
   breakdown: ScoreBreakdown;
   last_calculated: string;
 }
+
+export interface MatchResult {
+  match_id: string;
+  group_code: GroupCode;
+  home_team: string;
+  away_team: string;
+  home_goals: number;
+  away_goals: number;
+  entered_at: string;
+}
+
+export interface MatchResultItem {
+  PK: string;
+  SK: string;
+  match_id: string;
+  group_code: GroupCode;
+  home_team: string;
+  away_team: string;
+  home_goals: number;
+  away_goals: number;
+  entered_at: string;
+}
