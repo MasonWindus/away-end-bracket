@@ -38,6 +38,7 @@ export interface LeaderboardEntry {
   group_stage_score: number;
   knockout_score: number;
   total_score: number;
+  is_pinned?: boolean;
 }
 
 export interface GroupResult {
@@ -65,6 +66,7 @@ export interface AdminUser {
   id: string;
   display_name: string;
   email: string;
+  is_pinned: boolean;
   has_group_picks: boolean;
   has_thirds_picks: boolean;
   has_knockout_picks: boolean;
