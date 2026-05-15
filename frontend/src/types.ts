@@ -78,3 +78,13 @@ export interface PublicBracket {
   thirds_pick: ThirdsPick | null;
   knockout_picks: KnockoutPicks | null;
 }
+
+export interface MatchResult {
+  match_id: string;
+  group_code: GroupCode;
+  home_team: string;
+  away_team: string;
+  home_goals: number;
+  away_goals: number;
+  entered_at: string;
+}

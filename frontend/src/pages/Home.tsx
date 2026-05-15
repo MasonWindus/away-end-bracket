@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { getLeaderboard } from "../lib/api";
 import { GROUPS } from "../data/teams";
 import TeamFlag from "../components/TeamFlag";
+import type { LeaderboardEntry } from "../types";
 
 const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
 
@@ -45,6 +47,19 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
 export default function Home() {
   const { user } = useAuth();
   const countdown = useCountdown(PICKS_DEADLINE);
+  const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null);
+  const [totalEntrants, setTotalEntrants] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    getLeaderboard()
+      .then((entries) => {
+        setTotalEntrants(entries.length);
+        const found = entries.find((e) => e.userId === user.id);
+        setMyEntry(found ?? null);
+      })
+      .catch(() => {});
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-away-forest">
@@ -73,16 +88,68 @@ export default function Home() {
             how you stack up.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            {user ? (
-              <Link
-                to="/picks"
-                className="inline-flex items-center justify-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors shadow-lg shadow-away-forest/50"
-              >
-                <img src="/favicon.png" alt="" className="w-5 h-5 object-contain" aria-hidden="true" />
-                Fill Out My Bracket
-              </Link>
-            ) : (
+          {user ? (
+            <div className="mb-12 max-w-2xl mx-auto w-full">
+              {/* My entry dashboard */}
+              <div className="bg-away-green/60 border border-away-gold/30 rounded-2xl p-6 mb-4 text-left">
+                <p className="text-away-cream/60 text-xs font-semibold uppercase tracking-widest mb-3">
+                  Your Entry — {user.display_name}
+                </p>
+                {myEntry ? (
+                  <div className="grid grid-cols-3 gap-4 mb-5">
+                    <div className="text-center">
+                      <div className="font-display text-4xl text-away-gold font-bold">
+                        #{myEntry.rank}
+                      </div>
+                      <div className="text-away-cream/50 text-xs mt-1">
+                        of {totalEntrants} {totalEntrants === 1 ? "entry" : "entries"}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-display text-4xl text-away-cream font-bold">
+                        {myEntry.total_score}
+                      </div>
+                      <div className="text-away-cream/50 text-xs mt-1">total points</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-away-cream/70 space-y-0.5">
+                        <div><span className="text-away-cream/40 text-xs">Group stage</span><br /><span className="font-bold text-away-cream">{myEntry.group_stage_score} pts</span></div>
+                        <div><span className="text-away-cream/40 text-xs">Knockout</span><br /><span className="font-bold text-away-cream">{myEntry.knockout_score} pts</span></div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-away-cream/50 text-sm mb-5">
+                    No score yet — scores update after each recalculation.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/picks"
+                    className="inline-flex items-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-5 py-2.5 rounded-lg text-sm transition-colors"
+                  >
+                    <img src="/favicon.png" alt="" className="w-4 h-4 object-contain" aria-hidden="true" />
+                    {countdown.expired ? "View My Bracket" : "Edit My Bracket"}
+                  </Link>
+                  {myEntry && (
+                    <Link
+                      to={`/bracket/${user.id}`}
+                      className="inline-flex items-center gap-2 bg-away-green hover:bg-away-moss text-away-cream font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors border border-away-moss"
+                    >
+                      Public View
+                    </Link>
+                  )}
+                  <Link
+                    to="/leaderboard"
+                    className="inline-flex items-center gap-2 bg-away-green hover:bg-away-moss text-away-cream font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors border border-away-moss"
+                  >
+                    Full Leaderboard
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               <Link
                 to="/register"
                 className="inline-flex items-center justify-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors shadow-lg shadow-away-forest/50"
@@ -90,14 +157,14 @@ export default function Home() {
                 <img src="/favicon.png" alt="" className="w-5 h-5 object-contain" aria-hidden="true" />
                 Join the Contest
               </Link>
-            )}
-            <Link
-              to="/leaderboard"
-              className="inline-flex items-center justify-center gap-2 bg-away-green hover:bg-away-moss text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors border border-away-moss"
-            >
-              View Leaderboard
-            </Link>
-          </div>
+              <Link
+                to="/leaderboard"
+                className="inline-flex items-center justify-center gap-2 bg-away-green hover:bg-away-moss text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors border border-away-moss"
+              >
+                View Leaderboard
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

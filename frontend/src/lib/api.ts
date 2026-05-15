@@ -10,6 +10,7 @@ import type {
   AdminUser,
   PublicBracket,
   GroupCode,
+  MatchResult,
 } from "../types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -172,4 +173,25 @@ export async function recalculate(): Promise<{ message: string; processed: numbe
 export async function getAdminUsers(): Promise<AdminUser[]> {
   const data = await apiFetch<{ users: AdminUser[] }>("/admin/users");
   return data.users;
+}
+
+export async function getMatches(): Promise<MatchResult[]> {
+  const data = await apiFetch<{ matches: MatchResult[] }>("/admin/matches");
+  return data.matches;
+}
+
+export async function submitMatch(
+  match: Omit<MatchResult, "match_id" | "entered_at">
+): Promise<MatchResult> {
+  const data = await apiFetch<{ match: MatchResult }>("/admin/matches", {
+    method: "POST",
+    body: JSON.stringify(match),
+  });
+  return data.match;
+}
+
+export async function deleteMatch(matchId: string): Promise<void> {
+  await apiFetch(`/admin/matches/${encodeURIComponent(matchId)}`, {
+    method: "DELETE",
+  });
 }
