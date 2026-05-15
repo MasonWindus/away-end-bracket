@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  @apply bg-away-forest;
+}
+
 body {
   @apply bg-away-forest text-away-cream min-h-screen font-ui;
 }
