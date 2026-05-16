@@ -42,7 +42,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-away-forest">
       <Navbar />
-      <main>
+      <main className="pt-16">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
