@@ -61,27 +61,28 @@ function buildR32Field(
   }
 
   // 16 matches, 2 teams each = 32 spots
-  // Match 1: A1 vs T1, Match 2: B2 vs A2, Match 3: B1 vs T2, Match 4: C1 vs C2
-  // Match 5: D1 vs T3, Match 6: E2 vs D2, Match 7: E1 vs T4, Match 8: F1 vs F2
-  // Match 9: G1 vs T5, Match 10: H2 vs G2, Match 11: H1 vs T6, Match 12: I1 vs I2
-  // Match 13: J1 vs T7, Match 14: K2 vs J2, Match 15: K1 vs T8, Match 16: L1 vs L2
+  // Official FIFA 2026 bracket — no same-group teams meet before the Final
+  // M1: 1E vs T1, M2: 1I vs T2, M3: 2A vs 2B, M4: 1F vs 2C
+  // M5: 2K vs 2L, M6: 1H vs 2J, M7: 1D vs T3, M8: 1G vs T4
+  // M9: 1C vs 2F, M10: 2E vs 2I, M11: 1A vs T5, M12: 1L vs T6
+  // M13: 1J vs 2H, M14: 2D vs 2G, M15: 1B vs T7, M16: 1K vs T8
   return [
-    winner("A"),    thirdSlot(1),
-    runnerUp("B"),  runnerUp("A"),
-    winner("B"),    thirdSlot(2),
-    winner("C"),    runnerUp("C"),
+    winner("E"),    thirdSlot(1),
+    winner("I"),    thirdSlot(2),
+    runnerUp("A"),  runnerUp("B"),
+    winner("F"),    runnerUp("C"),
+    runnerUp("K"),  runnerUp("L"),
+    winner("H"),    runnerUp("J"),
     winner("D"),    thirdSlot(3),
-    runnerUp("E"),  runnerUp("D"),
-    winner("E"),    thirdSlot(4),
-    winner("F"),    runnerUp("F"),
-    winner("G"),    thirdSlot(5),
-    runnerUp("H"),  runnerUp("G"),
-    winner("H"),    thirdSlot(6),
-    winner("I"),    runnerUp("I"),
-    winner("J"),    thirdSlot(7),
-    runnerUp("K"),  runnerUp("J"),
+    winner("G"),    thirdSlot(4),
+    winner("C"),    runnerUp("F"),
+    runnerUp("E"),  runnerUp("I"),
+    winner("A"),    thirdSlot(5),
+    winner("L"),    thirdSlot(6),
+    winner("J"),    runnerUp("H"),
+    runnerUp("D"),  runnerUp("G"),
+    winner("B"),    thirdSlot(7),
     winner("K"),    thirdSlot(8),
-    winner("L"),    runnerUp("L"),
   ];
 }
 
