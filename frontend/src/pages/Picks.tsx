@@ -131,6 +131,15 @@ export default function Picks() {
   const [savingThirds, setSavingThirds] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
+  const BRACKET_FIX_NOTICE_KEY = "bracketFixNotice_v1";
+  const [showBracketNotice, setShowBracketNotice] = useState(
+    () => localStorage.getItem(BRACKET_FIX_NOTICE_KEY) !== "dismissed"
+  );
+  function dismissBracketNotice() {
+    localStorage.setItem(BRACKET_FIX_NOTICE_KEY, "dismissed");
+    setShowBracketNotice(false);
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -266,6 +275,30 @@ export default function Picks() {
           </>
         )}
       </div>
+
+      {/* Bracket fix notice */}
+      {showBracketNotice && knockoutPicks.R16.some(Boolean) && (
+        <div className="mb-6 rounded-xl border border-amber-500/50 bg-amber-900/20 px-4 py-3 flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-amber-300 font-semibold text-sm">Bracket matchups updated</p>
+            <p className="text-away-cream/70 text-xs mt-0.5">
+              The R32 bracket has been corrected to match the official FIFA 2026 draw — no same-group teams can meet before the Final. Your existing knockout picks may no longer reflect valid matchups. Please review your bracket.
+            </p>
+          </div>
+          <button
+            onClick={dismissBracketNotice}
+            className="shrink-0 text-away-cream/40 hover:text-away-cream/80 transition-colors"
+            aria-label="Dismiss"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Step indicator */}
       <div className="flex items-center gap-2 mb-8">
