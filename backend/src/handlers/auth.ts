@@ -95,32 +95,10 @@ async function register(
     return errorResponse(409, "An account with this email already exists");
   }
 
-  // Create user
+  // Reserve a user ID but don't create the record yet — it will be created
+  // when the user clicks the magic link and confirms their email address.
   const userId = uuidv4();
-  const now = new Date().toISOString();
 
-  const userItem: UserItem = {
-    PK: `USER#${userId}`,
-    SK: `USER#${userId}`,
-    GSI1PK: "USERS",
-    GSI1SK: 0,
-    id: userId,
-    display_name: display_name.trim(),
-    email: emailNormalized,
-    is_admin: false,
-    created_at: now,
-  };
-
-  const emailLookup: EmailLookupItem = {
-    PK: `EMAIL#${emailNormalized}`,
-    SK: "PROFILE",
-    user_id: userId,
-  };
-
-  await putItem(userItem as unknown as Record<string, unknown>);
-  await putItem(emailLookup as unknown as Record<string, unknown>);
-
-  // Create magic link token
   const token = createMagicLinkToken(userId, emailNormalized);
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -131,15 +109,17 @@ async function register(
     user_id: userId,
     expires_at: expiresAt,
     used: false,
+    pending_registration: true,
+    display_name: display_name.trim(),
+    email: emailNormalized,
   };
 
   await putItem(magicTokenItem as unknown as Record<string, unknown>);
 
-  // Send registration email
   await sendRegistrationEmail(emailNormalized, display_name.trim(), token);
 
   return response(201, {
-    message: "Account created. Check your email for the sign-in link.",
+    message: "Check your email for the sign-in link.",
   });
 }
 
@@ -268,6 +248,43 @@ async function verifyMagicLink(
     ...tokenItem,
     used: true,
   } as unknown as Record<string, unknown>);
+
+  // If this is a pending registration, create the user record now that the
+  // email address has been confirmed via the magic link.
+  if (tokenItem.pending_registration) {
+    if (!tokenItem.display_name || !tokenItem.email) {
+      return {
+        statusCode: 302,
+        headers: {
+          ...corsHeaders,
+          Location: `${FRONTEND_URL}/login?error=invalid_token`,
+        },
+        body: "",
+      };
+    }
+
+    const now = new Date().toISOString();
+    const userItem: UserItem = {
+      PK: `USER#${payload.userId}`,
+      SK: `USER#${payload.userId}`,
+      GSI1PK: "USERS",
+      GSI1SK: 0,
+      id: payload.userId,
+      display_name: tokenItem.display_name,
+      email: tokenItem.email,
+      is_admin: false,
+      created_at: now,
+    };
+
+    const emailLookup: EmailLookupItem = {
+      PK: `EMAIL#${tokenItem.email}`,
+      SK: "PROFILE",
+      user_id: payload.userId,
+    };
+
+    await putItem(userItem as unknown as Record<string, unknown>);
+    await putItem(emailLookup as unknown as Record<string, unknown>);
+  }
 
   // Get user to check admin status
   const userItem = await getItem({

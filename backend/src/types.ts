@@ -116,6 +116,9 @@ export interface MagicTokenItem {
   user_id: string;
   expires_at: string;
   used: boolean;
+  pending_registration?: boolean;
+  display_name?: string;
+  email?: string;
 }
 
 export interface GroupPickItem {
