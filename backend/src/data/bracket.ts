@@ -20,22 +20,22 @@ export interface R32Match {
 }
 
 export const R32_MATCHES: R32Match[] = [
-  { id: "R32-M1",  home: { type: "group", group: "A", place: 1 }, away: { type: "third", slot: 1 } },
-  { id: "R32-M2",  home: { type: "group", group: "B", place: 2 }, away: { type: "group", group: "A", place: 2 } },
-  { id: "R32-M3",  home: { type: "group", group: "B", place: 1 }, away: { type: "third", slot: 2 } },
-  { id: "R32-M4",  home: { type: "group", group: "C", place: 1 }, away: { type: "group", group: "C", place: 2 } },
-  { id: "R32-M5",  home: { type: "group", group: "D", place: 1 }, away: { type: "third", slot: 3 } },
-  { id: "R32-M6",  home: { type: "group", group: "E", place: 2 }, away: { type: "group", group: "D", place: 2 } },
-  { id: "R32-M7",  home: { type: "group", group: "E", place: 1 }, away: { type: "third", slot: 4 } },
-  { id: "R32-M8",  home: { type: "group", group: "F", place: 1 }, away: { type: "group", group: "F", place: 2 } },
-  { id: "R32-M9",  home: { type: "group", group: "G", place: 1 }, away: { type: "third", slot: 5 } },
-  { id: "R32-M10", home: { type: "group", group: "H", place: 2 }, away: { type: "group", group: "G", place: 2 } },
-  { id: "R32-M11", home: { type: "group", group: "H", place: 1 }, away: { type: "third", slot: 6 } },
-  { id: "R32-M12", home: { type: "group", group: "I", place: 1 }, away: { type: "group", group: "I", place: 2 } },
-  { id: "R32-M13", home: { type: "group", group: "J", place: 1 }, away: { type: "third", slot: 7 } },
-  { id: "R32-M14", home: { type: "group", group: "K", place: 2 }, away: { type: "group", group: "J", place: 2 } },
-  { id: "R32-M15", home: { type: "group", group: "K", place: 1 }, away: { type: "third", slot: 8 } },
-  { id: "R32-M16", home: { type: "group", group: "L", place: 1 }, away: { type: "group", group: "L", place: 2 } },
+  { id: "R32-M1",  home: { type: "group", group: "E", place: 1 }, away: { type: "third", slot: 1 } },
+  { id: "R32-M2",  home: { type: "group", group: "I", place: 1 }, away: { type: "third", slot: 2 } },
+  { id: "R32-M3",  home: { type: "group", group: "A", place: 2 }, away: { type: "group", group: "B", place: 2 } },
+  { id: "R32-M4",  home: { type: "group", group: "F", place: 1 }, away: { type: "group", group: "C", place: 2 } },
+  { id: "R32-M5",  home: { type: "group", group: "K", place: 2 }, away: { type: "group", group: "L", place: 2 } },
+  { id: "R32-M6",  home: { type: "group", group: "H", place: 1 }, away: { type: "group", group: "J", place: 2 } },
+  { id: "R32-M7",  home: { type: "group", group: "D", place: 1 }, away: { type: "third", slot: 3 } },
+  { id: "R32-M8",  home: { type: "group", group: "G", place: 1 }, away: { type: "third", slot: 4 } },
+  { id: "R32-M9",  home: { type: "group", group: "C", place: 1 }, away: { type: "group", group: "F", place: 2 } },
+  { id: "R32-M10", home: { type: "group", group: "E", place: 2 }, away: { type: "group", group: "I", place: 2 } },
+  { id: "R32-M11", home: { type: "group", group: "A", place: 1 }, away: { type: "third", slot: 5 } },
+  { id: "R32-M12", home: { type: "group", group: "L", place: 1 }, away: { type: "third", slot: 6 } },
+  { id: "R32-M13", home: { type: "group", group: "J", place: 1 }, away: { type: "group", group: "H", place: 2 } },
+  { id: "R32-M14", home: { type: "group", group: "D", place: 2 }, away: { type: "group", group: "G", place: 2 } },
+  { id: "R32-M15", home: { type: "group", group: "B", place: 1 }, away: { type: "third", slot: 7 } },
+  { id: "R32-M16", home: { type: "group", group: "K", place: 1 }, away: { type: "third", slot: 8 } },
 ];
 
 export interface R16Match {
@@ -44,11 +44,11 @@ export interface R16Match {
 }
 
 export const R16_MATCH_PAIRS: R16Match[] = [
-  { id: "R16-M1", from: ["R32-M1", "R32-M2"] },
-  { id: "R16-M2", from: ["R32-M3", "R32-M4"] },
-  { id: "R16-M3", from: ["R32-M5", "R32-M6"] },
-  { id: "R16-M4", from: ["R32-M7", "R32-M8"] },
-  { id: "R16-M5", from: ["R32-M9", "R32-M10"] },
+  { id: "R16-M1", from: ["R32-M1",  "R32-M2"]  },
+  { id: "R16-M2", from: ["R32-M3",  "R32-M4"]  },
+  { id: "R16-M3", from: ["R32-M5",  "R32-M6"]  },
+  { id: "R16-M4", from: ["R32-M7",  "R32-M8"]  },
+  { id: "R16-M5", from: ["R32-M9",  "R32-M10"] },
   { id: "R16-M6", from: ["R32-M11", "R32-M12"] },
   { id: "R16-M7", from: ["R32-M13", "R32-M14"] },
   { id: "R16-M8", from: ["R32-M15", "R32-M16"] },

@@ -17,22 +17,22 @@ function buildR32Field(groupPicks: GroupPick[], thirdsPick: { teams: string[] } 
   function thirdSlot(slot: number) { return thirdsPick?.teams[slot - 1] || "TBD"; }
 
   return [
-    winner("A"),    thirdSlot(1),
-    runnerUp("B"),  runnerUp("A"),
-    winner("B"),    thirdSlot(2),
-    winner("C"),    runnerUp("C"),
+    winner("E"),    thirdSlot(1),
+    winner("I"),    thirdSlot(2),
+    runnerUp("A"),  runnerUp("B"),
+    winner("F"),    runnerUp("C"),
+    runnerUp("K"),  runnerUp("L"),
+    winner("H"),    runnerUp("J"),
     winner("D"),    thirdSlot(3),
-    runnerUp("E"),  runnerUp("D"),
-    winner("E"),    thirdSlot(4),
-    winner("F"),    runnerUp("F"),
-    winner("G"),    thirdSlot(5),
-    runnerUp("H"),  runnerUp("G"),
-    winner("H"),    thirdSlot(6),
-    winner("I"),    runnerUp("I"),
-    winner("J"),    thirdSlot(7),
-    runnerUp("K"),  runnerUp("J"),
+    winner("G"),    thirdSlot(4),
+    winner("C"),    runnerUp("F"),
+    runnerUp("E"),  runnerUp("I"),
+    winner("A"),    thirdSlot(5),
+    winner("L"),    thirdSlot(6),
+    winner("J"),    runnerUp("H"),
+    runnerUp("D"),  runnerUp("G"),
+    winner("B"),    thirdSlot(7),
     winner("K"),    thirdSlot(8),
-    winner("L"),    runnerUp("L"),
   ];
 }
 
