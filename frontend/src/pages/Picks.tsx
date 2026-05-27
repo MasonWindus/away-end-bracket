@@ -131,6 +131,9 @@ export default function Picks() {
   const [savingThirds, setSavingThirds] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
+  // Track when thirds picks have been invalidated by a group stage change
+  const [thirdsInvalidated, setThirdsInvalidated] = useState(false);
+
   const BRACKET_FIX_NOTICE_KEY = "bracketFixNotice_v1";
   const [showBracketNotice, setShowBracketNotice] = useState(
     () => localStorage.getItem(BRACKET_FIX_NOTICE_KEY) !== "dismissed"
@@ -163,6 +166,22 @@ export default function Picks() {
     load();
   }, [load]);
 
+  // When group picks change, remove any thirds picks that are no longer valid
+  // 3rd-place teams (e.g. user changed who finishes 3rd in a group after already
+  // selecting their thirds). Uses functional update to avoid stale closure.
+  useEffect(() => {
+    setThirdsPick((prev) => {
+      if (!prev || prev.teams.length === 0) return prev;
+      const validCodes = new Set(getThirdPlaceTeams(groupPicks).map((t) => t.code));
+      const validTeams = prev.teams.filter((c) => validCodes.has(c));
+      if (validTeams.length !== prev.teams.length) {
+        setThirdsInvalidated(true);
+        return { ...prev, teams: validTeams };
+      }
+      return prev;
+    });
+  }, [groupPicks]);
+
   const groupSavedCount = groupPicks.filter(
     (p) => p.first_place && p.second_place && p.third_place && p.fourth_place
   ).length;
@@ -186,6 +205,7 @@ export default function Picks() {
     try {
       const saved = await updateThirdsPick(teams);
       setThirdsPick(saved);
+      setThirdsInvalidated(false);
       setSaveMsg("Thirds picks saved!");
       setTimeout(() => setSaveMsg(null), 3000);
     } catch (err: unknown) {
@@ -327,6 +347,9 @@ export default function Picks() {
                 {s}
               </span>
               <span className="hidden sm:inline">{STEP_LABELS[s - 1]}</span>
+              {s === 2 && thirdsInvalidated && step !== 2 && (
+                <span className="w-2 h-2 rounded-full bg-away-orange shrink-0" aria-label="Thirds need attention" />
+              )}
             </button>
             {s < 3 && <div className="flex-1 h-px bg-away-moss" />}
           </React.Fragment>
@@ -417,6 +440,29 @@ export default function Picks() {
               knockout round. Select which 8 you think will qualify.
             </p>
           </div>
+
+          {thirdsInvalidated && (
+            <div className="mb-4 rounded-xl border border-away-orange/50 bg-away-orange/10 px-4 py-3 flex items-start gap-3">
+              <svg className="w-5 h-5 text-away-orange shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-away-orange font-semibold text-sm">Thirds picks need updating</p>
+                <p className="text-away-cream/70 text-xs mt-0.5">
+                  One or more of your thirds picks is no longer a valid third-place team because you changed a group. Please re-select to fill all 8 spots.
+                </p>
+              </div>
+              <button
+                onClick={() => setThirdsInvalidated(false)}
+                className="shrink-0 text-away-cream/40 hover:text-away-cream/80 transition-colors"
+                aria-label="Dismiss"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
 
           <ThirdsPicker
             thirdPlaceTeams={thirdPlaceTeams}
