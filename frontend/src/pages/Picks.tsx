@@ -9,6 +9,7 @@ import {
   updateKnockoutPicks,
 } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
+import { buildR32Field } from "../lib/bracket";
 import GroupCard from "../components/GroupCard";
 import ThirdsPicker from "../components/ThirdsPicker";
 import BracketView from "../components/BracketView";
@@ -33,58 +34,6 @@ function useCountdown(target: Date) {
 }
 
 type Step = 1 | 2 | 3;
-
-// Build the 32-team R32 field from group picks and thirds picks
-function buildR32Field(
-  groupPicks: GroupPick[],
-  thirdsPick: ThirdsPick | null,
-  thirdsSlots: Record<number, string>
-): string[] {
-  // Map group code -> pick
-  const pickMap: Record<string, GroupPick> = {};
-  for (const p of groupPicks) {
-    pickMap[p.group_code] = p;
-  }
-
-  function winner(g: string): string {
-    return pickMap[g]?.first_place || "TBD";
-  }
-  function runnerUp(g: string): string {
-    return pickMap[g]?.second_place || "TBD";
-  }
-
-  // Thirds slot -> team: use admin slots if provided, else use user's thirds picks in order
-  function thirdSlot(slot: number): string {
-    if (thirdsSlots[slot]) return thirdsSlots[slot];
-    if (thirdsPick && thirdsPick.teams[slot - 1]) return thirdsPick.teams[slot - 1];
-    return "TBD";
-  }
-
-  // 16 matches, 2 teams each = 32 spots
-  // Official FIFA 2026 bracket — no same-group teams meet before the Final
-  // M1: 1E vs T1, M2: 1I vs T2, M3: 2A vs 2B, M4: 1F vs 2C
-  // M5: 2K vs 2L, M6: 1H vs 2J, M7: 1D vs T3, M8: 1G vs T4
-  // M9: 1C vs 2F, M10: 2E vs 2I, M11: 1A vs T5, M12: 1L vs T6
-  // M13: 1J vs 2H, M14: 2D vs 2G, M15: 1B vs T7, M16: 1K vs T8
-  return [
-    winner("E"),    thirdSlot(1),
-    winner("I"),    thirdSlot(2),
-    runnerUp("A"),  runnerUp("B"),
-    winner("F"),    runnerUp("C"),
-    runnerUp("K"),  runnerUp("L"),
-    winner("H"),    runnerUp("J"),
-    winner("D"),    thirdSlot(3),
-    winner("G"),    thirdSlot(4),
-    winner("C"),    runnerUp("F"),
-    runnerUp("E"),  runnerUp("I"),
-    winner("A"),    thirdSlot(5),
-    winner("L"),    thirdSlot(6),
-    winner("J"),    runnerUp("H"),
-    runnerUp("D"),  runnerUp("G"),
-    winner("B"),    thirdSlot(7),
-    winner("K"),    thirdSlot(8),
-  ];
-}
 
 // Get third-place teams from group picks
 function getThirdPlaceTeams(groupPicks: GroupPick[]) {

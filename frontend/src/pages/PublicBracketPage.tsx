@@ -2,39 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getUserBracket } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
+import { buildR32Field } from "../lib/bracket";
 import TeamFlag from "../components/TeamFlag";
 import type { PublicBracket, GroupPick, KnockoutPicks } from "../types";
 import BracketView from "../components/BracketView";
 
 type KnockoutView = "bracket" | "pills";
-
-function buildR32Field(groupPicks: GroupPick[], thirdsPick: { teams: string[] } | null): string[] {
-  const pickMap: Record<string, GroupPick> = {};
-  for (const p of groupPicks) pickMap[p.group_code] = p;
-
-  function winner(g: string) { return pickMap[g]?.first_place || "TBD"; }
-  function runnerUp(g: string) { return pickMap[g]?.second_place || "TBD"; }
-  function thirdSlot(slot: number) { return thirdsPick?.teams[slot - 1] || "TBD"; }
-
-  return [
-    winner("E"),    thirdSlot(1),
-    winner("I"),    thirdSlot(2),
-    runnerUp("A"),  runnerUp("B"),
-    winner("F"),    runnerUp("C"),
-    runnerUp("K"),  runnerUp("L"),
-    winner("H"),    runnerUp("J"),
-    winner("D"),    thirdSlot(3),
-    winner("G"),    thirdSlot(4),
-    winner("C"),    runnerUp("F"),
-    runnerUp("E"),  runnerUp("I"),
-    winner("A"),    thirdSlot(5),
-    winner("L"),    thirdSlot(6),
-    winner("J"),    runnerUp("H"),
-    runnerUp("D"),  runnerUp("G"),
-    winner("B"),    thirdSlot(7),
-    winner("K"),    thirdSlot(8),
-  ];
-}
 
 function emptyKnockoutPicks(): KnockoutPicks {
   return { R16: Array(16).fill(""), QF: Array(8).fill(""), SF: Array(4).fill(""), Final: Array(2).fill(""), Champion: "", locked: true };
