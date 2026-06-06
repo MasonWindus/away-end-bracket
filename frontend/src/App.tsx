@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import Navbar from "./components/Navbar";
+import BugReportButton from "./components/BugReportButton";
 import Home from "./pages/Home";
 import Register from "./pages/Register";
 import Verify from "./pages/Verify";
@@ -98,6 +99,19 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      <footer className="border-t border-away-moss/40 mt-12 py-4 px-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-center">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("open-bug-report"))}
+            className="text-away-cream/30 hover:text-away-cream/60 text-xs transition-colors"
+          >
+            Report a Bug
+          </button>
+        </div>
+      </footer>
+
+      <BugReportButton />
     </div>
   );
 }

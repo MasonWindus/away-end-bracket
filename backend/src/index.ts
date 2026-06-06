@@ -3,6 +3,7 @@ import { handleAuth } from "./handlers/auth";
 import { handlePicks } from "./handlers/picks";
 import { handleLeaderboard } from "./handlers/leaderboard";
 import { handleAdmin } from "./handlers/admin";
+import { handleBugReport } from "./handlers/bugReport";
 import { corsHeaders, corsPreflightResponse } from "./lib/middleware";
 
 export const handler = async (
@@ -30,6 +31,10 @@ export const handler = async (
 
     if (path.startsWith("/api/admin")) {
       return await handleAdmin(event);
+    }
+
+    if (path === "/api/bug-report") {
+      return await handleBugReport(event);
     }
 
     return {
