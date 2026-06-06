@@ -4,6 +4,8 @@ import { AuthError, errorResponse, requireAdmin, response } from "../lib/middlew
 import { calculateAllScores } from "../lib/scoring";
 import { computeGroupStandings } from "../lib/standings";
 import {
+  BugReport,
+  BugReportItem,
   GroupCode,
   GroupPickItem,
   GroupResultItem,
@@ -101,6 +103,17 @@ export async function handleAdmin(
     // DELETE /api/admin/users/:userId/pin
     if (method === "DELETE" && pinMatch) {
       return await unpinUser(pinMatch[1]);
+    }
+
+    // GET /api/admin/bug-reports
+    if (method === "GET" && path === "/api/admin/bug-reports") {
+      return await getBugReports();
+    }
+
+    // PUT /api/admin/bug-reports/:id/status
+    const bugReportStatusMatch = path.match(/^\/api\/admin\/bug-reports\/([^/]+)\/status$/);
+    if (method === "PUT" && bugReportStatusMatch) {
+      return await updateBugReportStatus(event, bugReportStatusMatch[1]);
     }
 
     return errorResponse(404, "Not found");
@@ -571,6 +584,52 @@ async function unpinUser(userId: string): Promise<APIGatewayProxyResult> {
   });
 
   return response(200, { message: "User unpinned" });
+}
+
+async function getBugReports(): Promise<APIGatewayProxyResult> {
+  const items = await queryItems({
+    IndexName: "GSI1",
+    KeyConditionExpression: "GSI1PK = :pk",
+    ExpressionAttributeValues: { ":pk": "BUG_REPORTS" },
+    ScanIndexForward: false, // newest first
+  }) as unknown as BugReportItem[];
+
+  const reports: BugReport[] = items.map((item) => ({
+    id: item.id,
+    description: item.description,
+    ...(item.page ? { page: item.page } : {}),
+    ...(item.user_id ? { user_id: item.user_id } : {}),
+    ...(item.display_name ? { display_name: item.display_name } : {}),
+    status: item.status,
+    created_at: item.created_at,
+  }));
+
+  return response(200, { reports });
+}
+
+async function updateBugReportStatus(
+  event: APIGatewayProxyEvent,
+  id: string
+): Promise<APIGatewayProxyResult> {
+  let body: { status?: string };
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return errorResponse(400, "Invalid JSON");
+  }
+
+  if (body.status !== "open" && body.status !== "resolved") {
+    return errorResponse(400, "status must be 'open' or 'resolved'");
+  }
+
+  await updateItem({
+    Key: { PK: `BUG_REPORT#${id}`, SK: "REPORT" },
+    UpdateExpression: "SET #s = :status",
+    ExpressionAttributeNames: { "#s": "status" },
+    ExpressionAttributeValues: { ":status": body.status },
+  });
+
+  return response(200, { message: "Status updated" });
 }
 
 async function getUsers(): Promise<APIGatewayProxyResult> {

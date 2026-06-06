@@ -203,3 +203,40 @@ export async function pinUser(userId: string): Promise<{ message: string }> {
 export async function unpinUser(userId: string): Promise<{ message: string }> {
   return apiFetch(`/admin/users/${encodeURIComponent(userId)}/pin`, { method: "DELETE" });
 }
+
+// ---- Bug Reports ----
+
+export async function submitBugReport(data: {
+  description: string;
+  page?: string;
+}): Promise<{ message: string; id: string }> {
+  return apiFetch("/bug-report", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export interface BugReport {
+  id: string;
+  description: string;
+  page?: string;
+  user_id?: string;
+  display_name?: string;
+  status: "open" | "resolved";
+  created_at: string;
+}
+
+export async function getBugReports(): Promise<BugReport[]> {
+  const data = await apiFetch<{ reports: BugReport[] }>("/admin/bug-reports");
+  return data.reports;
+}
+
+export async function updateBugReportStatus(
+  id: string,
+  status: "open" | "resolved"
+): Promise<{ message: string }> {
+  return apiFetch(`/admin/bug-reports/${encodeURIComponent(id)}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+}

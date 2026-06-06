@@ -13,12 +13,15 @@ import {
   deleteMatch,
   pinUser,
   unpinUser,
+  getBugReports,
+  updateBugReportStatus,
+  type BugReport,
 } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
 import TeamFlag from "../components/TeamFlag";
 import type { GroupCode, GroupResult, ThirdsResult, AdminUser, MatchResult } from "../types";
 
-type Tab = "matches" | "groups" | "thirds" | "knockout" | "recalculate" | "users";
+type Tab = "matches" | "groups" | "thirds" | "knockout" | "recalculate" | "users" | "bugs";
 
 // ─── Group Results Section ────────────────────────────────────────────────────
 function GroupResultsSection({ groupResults, onResultSaved }: {
@@ -515,6 +518,8 @@ export default function Admin() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [recalcResult, setRecalcResult] = useState<string>("");
   const [recalcLoading, setRecalcLoading] = useState(false);
+  const [bugReports, setBugReports] = useState<BugReport[]>([]);
+  const [bugsLoading, setBugsLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && (!user || !user.is_admin)) {
@@ -549,8 +554,21 @@ export default function Admin() {
     loadGroupResults();
   }, []);
 
+  async function loadBugReports() {
+    setBugsLoading(true);
+    try {
+      const reports = await getBugReports();
+      setBugReports(reports);
+    } catch {
+      setBugReports([]);
+    } finally {
+      setBugsLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (tab === "users") loadUsers();
+    if (tab === "bugs") loadBugReports();
   }, [tab]);
 
   async function handleRecalculate() {
@@ -571,13 +589,16 @@ export default function Admin() {
   }
   if (!user?.is_admin) return null;
 
-  const tabs: Array<{ id: Tab; label: string }> = [
+  const openBugCount = bugReports.filter((r) => r.status === "open").length;
+
+  const tabs: Array<{ id: Tab; label: string; badge?: number }> = [
     { id: "matches", label: "Match Results" },
     { id: "groups", label: "Final Group Standings" },
     { id: "thirds", label: "Third-Place Teams" },
     { id: "knockout", label: "Knockout Results" },
     { id: "recalculate", label: "Recalculate" },
     { id: "users", label: "Users" },
+    { id: "bugs", label: "Bug Reports", badge: openBugCount || undefined },
   ];
 
   return (
@@ -593,13 +614,18 @@ export default function Admin() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
               tab === t.id
                 ? "bg-emerald-700 text-white"
                 : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
             }`}
           >
             {t.label}
+            {t.badge != null && (
+              <span className="bg-red-600 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {t.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -651,6 +677,35 @@ export default function Admin() {
               <p className={`mt-4 text-sm ${recalcResult.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
                 {recalcResult}
               </p>
+            )}
+          </>
+        )}
+
+        {tab === "bugs" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-1">Bug Reports</h2>
+            <p className="text-gray-400 text-sm mb-5">
+              {bugReports.length} total — {openBugCount} open
+            </p>
+            {bugsLoading ? (
+              <div className="text-emerald-400 animate-pulse py-8 text-center">Loading...</div>
+            ) : bugReports.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No bug reports yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {bugReports.map((report) => (
+                  <BugReportRow
+                    key={report.id}
+                    report={report}
+                    onStatusChange={async (status) => {
+                      await updateBugReportStatus(report.id, status);
+                      setBugReports((prev) =>
+                        prev.map((r) => r.id === report.id ? { ...r, status } : r)
+                      );
+                    }}
+                  />
+                ))}
+              </div>
             )}
           </>
         )}
@@ -735,6 +790,76 @@ export default function Admin() {
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function BugReportRow({
+  report,
+  onStatusChange,
+}: {
+  report: BugReport;
+  onStatusChange: (status: "open" | "resolved") => Promise<void>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function toggle() {
+    setSaving(true);
+    try {
+      await onStatusChange(report.status === "open" ? "resolved" : "open");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const date = new Date(report.created_at).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
+  return (
+    <div className={`border rounded-xl p-4 ${report.status === "resolved" ? "border-gray-700 opacity-60" : "border-gray-600"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${report.status === "open" ? "bg-red-900/60 text-red-300" : "bg-gray-700 text-gray-400"}`}>
+              {report.status}
+            </span>
+            <span className="text-gray-500 text-xs">{date}</span>
+            {report.display_name && (
+              <span className="text-gray-400 text-xs">{report.display_name}</span>
+            )}
+            {report.page && (
+              <span className="text-gray-500 text-xs font-mono bg-gray-800 px-1.5 py-0.5 rounded">{report.page}</span>
+            )}
+          </div>
+          <p
+            className={`text-gray-300 text-sm whitespace-pre-wrap cursor-pointer ${!expanded ? "line-clamp-2" : ""}`}
+            onClick={() => setExpanded(!expanded)}
+          >
+            {report.description}
+          </p>
+          {report.description.length > 120 && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="text-gray-500 hover:text-gray-300 text-xs mt-1 transition-colors"
+            >
+              {expanded ? "Show less" : "Show more"}
+            </button>
+          )}
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+            report.status === "open"
+              ? "bg-emerald-800/60 text-emerald-300 hover:bg-emerald-700/60"
+              : "bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-200"
+          }`}
+        >
+          {saving ? "…" : report.status === "open" ? "Resolve" : "Reopen"}
+        </button>
       </div>
     </div>
   );

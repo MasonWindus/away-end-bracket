@@ -214,3 +214,27 @@ export interface MatchResultItem {
   away_goals: number;
   entered_at: string;
 }
+
+export interface BugReport {
+  id: string;
+  description: string;
+  page?: string;
+  user_id?: string;
+  display_name?: string;
+  status: "open" | "resolved";
+  created_at: string;
+}
+
+export interface BugReportItem {
+  PK: string;   // BUG_REPORT#<id>
+  SK: string;   // REPORT
+  GSI1PK: string; // BUG_REPORTS
+  GSI1SK: number; // epoch ms, for sorting
+  id: string;
+  description: string;
+  page?: string;
+  user_id?: string;
+  display_name?: string;
+  status: "open" | "resolved";
+  created_at: string;
+}
