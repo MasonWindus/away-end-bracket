@@ -3,11 +3,14 @@ import { Link } from "react-router-dom";
 import { getLeaderboard } from "../lib/api";
 import type { LeaderboardEntry } from "../types";
 
+const PAGE_SIZE = 50;
+
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const pinned = entries.filter((e) => e.is_pinned);
@@ -30,15 +33,37 @@ export default function LeaderboardPage() {
     load();
   }, []);
 
+  // Reset to first page whenever search changes
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
   const filtered = entries.filter((e) =>
     e.display_name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIdx = (safePage - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(startIdx, startIdx + PAGE_SIZE);
 
   function rankBadge(rank: number) {
     if (rank === 1) return "🥇";
     if (rank === 2) return "🥈";
     if (rank === 3) return "🥉";
     return null;
+  }
+
+  function pageNumbers(current: number, total: number): (number | "…")[] {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages: (number | "…")[] = [1];
+    if (current > 3) pages.push("…");
+    for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) {
+      pages.push(p);
+    }
+    if (current < total - 2) pages.push("…");
+    pages.push(total);
+    return pages;
   }
 
   return (
@@ -223,13 +248,13 @@ export default function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-away-moss/50">
-                  {filtered.map((entry, idx) => {
+                  {paginated.map((entry) => {
                     const badge = rankBadge(entry.rank);
                     return (
                       <tr
                         key={entry.userId}
                         className={`transition-colors hover:bg-away-moss/30 ${
-                          idx < 3 ? "bg-away-moss/10" : ""
+                          entry.rank <= 3 ? "bg-away-moss/10" : ""
                         }`}
                       >
                         <td className="px-4 py-3">
@@ -277,10 +302,54 @@ export default function LeaderboardPage() {
             </div>
           </div>
 
-          <p className="text-away-cream/40 text-xs mt-3 text-center">
-            {filtered.length} contestant{filtered.length !== 1 ? "s" : ""}{" "}
-            {search ? `matching "${search}"` : "total"}
-          </p>
+          {/* Pagination footer */}
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-away-cream/40 text-xs">
+              Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, filtered.length)} of{" "}
+              {filtered.length} contestant{filtered.length !== 1 ? "s" : ""}
+              {search ? ` matching "${search}"` : ""}
+            </p>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  className="px-2.5 py-1.5 rounded text-xs font-medium text-away-cream/60 hover:text-away-cream hover:bg-away-moss border border-away-moss/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  ‹ Prev
+                </button>
+
+                {pageNumbers(safePage, totalPages).map((p, i) =>
+                  p === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-2 text-away-cream/30 text-xs select-none">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`min-w-[2rem] px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
+                        p === safePage
+                          ? "bg-away-gold text-away-green border-away-gold font-bold"
+                          : "text-away-cream/60 hover:text-away-cream hover:bg-away-moss border-away-moss/50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  className="px-2.5 py-1.5 rounded text-xs font-medium text-away-cream/60 hover:text-away-cream hover:bg-away-moss border border-away-moss/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next ›
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
