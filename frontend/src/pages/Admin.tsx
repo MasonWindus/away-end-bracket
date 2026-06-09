@@ -15,13 +15,15 @@ import {
   unpinUser,
   getBugReports,
   updateBugReportStatus,
+  getKnockoutDeadlineConfig,
+  setKnockoutDeadlineConfig,
   type BugReport,
 } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
 import TeamFlag from "../components/TeamFlag";
 import type { GroupCode, GroupResult, ThirdsResult, AdminUser, MatchResult } from "../types";
 
-type Tab = "matches" | "groups" | "thirds" | "knockout" | "recalculate" | "users" | "bugs";
+type Tab = "matches" | "groups" | "thirds" | "knockout" | "recalculate" | "users" | "bugs" | "settings";
 
 // ─── Group Results Section ────────────────────────────────────────────────────
 function GroupResultsSection({ groupResults, onResultSaved }: {
@@ -508,6 +510,138 @@ function KnockoutResultSection({ onSaved }: { onSaved: () => void }) {
   );
 }
 
+// ─── Settings Section ─────────────────────────────────────────────────────────
+function SettingsSection() {
+  const [deadlineInput, setDeadlineInput] = useState("");
+  const [current, setCurrent] = useState<string | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getKnockoutDeadlineConfig();
+        setCurrent(data.deadline);
+        if (data.deadline) {
+          // Convert ISO to local datetime-local string for the input
+          const d = new Date(data.deadline);
+          const offset = d.getTimezoneOffset() * 60000;
+          const local = new Date(d.getTime() - offset);
+          setDeadlineInput(local.toISOString().slice(0, 16));
+        }
+      } catch {
+        // ignore
+      } finally {
+        setConfigLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  async function handleSave() {
+    if (!deadlineInput) {
+      setMessage("Enter a deadline date and time.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      const isoString = new Date(deadlineInput).toISOString();
+      await setKnockoutDeadlineConfig(isoString);
+      setCurrent(isoString);
+      setMessage(`✓ Knockout deadline set to ${new Date(isoString).toLocaleString()}`);
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Error saving");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleClear() {
+    if (!confirm("Clear the knockout deadline? Knockout picks will be open until a new deadline is set.")) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      await setKnockoutDeadlineConfig(null);
+      setCurrent(null);
+      setDeadlineInput("");
+      setMessage("✓ Knockout deadline cleared. Picks are now open.");
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Error clearing");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-white font-semibold mb-1">Knockout Round Picks Deadline</h3>
+        <p className="text-gray-400 text-sm mb-4">
+          Set when knockout bracket picks lock. Group stage and thirds picks are locked at
+          June 11, 2026 at 4:00 PM UTC — that cannot be changed here. The knockout deadline
+          is set separately so players can update their bracket once the group stage plays out.
+        </p>
+
+        {configLoading ? (
+          <div className="text-emerald-400 animate-pulse text-sm">Loading...</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-1">Current knockout deadline</div>
+              <div className={`text-sm font-medium ${current ? "text-white" : "text-gray-500"}`}>
+                {current
+                  ? new Date(current).toLocaleString("en-US", {
+                      month: "long", day: "numeric", year: "numeric",
+                      hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+                    })
+                  : "Not set — knockout picks are open"}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-gray-300 text-sm font-medium block">
+                Set new deadline (your local time)
+              </label>
+              <div className="flex gap-3 items-center flex-wrap">
+                <input
+                  type="datetime-local"
+                  value={deadlineInput}
+                  onChange={(e) => setDeadlineInput(e.target.value)}
+                  className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !deadlineInput}
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+                >
+                  {saving ? "Saving..." : "Set Deadline"}
+                </button>
+                {current && (
+                  <button
+                    onClick={handleClear}
+                    disabled={saving}
+                    className="px-5 py-2 bg-gray-700 hover:bg-red-900/60 disabled:opacity-50 text-gray-300 hover:text-red-300 text-sm rounded font-medium transition-colors"
+                  >
+                    Clear Deadline
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {message && (
+              <p className={`text-sm ${message.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                {message}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 export default function Admin() {
   const { user, loading } = useAuth();
@@ -599,6 +733,7 @@ export default function Admin() {
     { id: "recalculate", label: "Recalculate" },
     { id: "users", label: "Users" },
     { id: "bugs", label: "Bug Reports", badge: openBugCount || undefined },
+    { id: "settings", label: "Settings" },
   ];
 
   return (
@@ -788,6 +923,12 @@ export default function Admin() {
                 </table>
               </div>
             )}
+          </>
+        )}
+        {tab === "settings" && (
+          <>
+            <h2 className="text-xl font-bold text-white mb-4">Settings</h2>
+            <SettingsSection />
           </>
         )}
       </div>

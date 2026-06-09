@@ -97,6 +97,14 @@ export async function updateKnockoutPicks(
   });
 }
 
+export async function resetKnockoutPicks(): Promise<void> {
+  await apiFetch("/picks/knockout", { method: "DELETE" });
+}
+
+export async function getKnockoutDeadline(): Promise<{ deadline: string | null; locked: boolean }> {
+  return apiFetch("/picks/knockout-deadline");
+}
+
 // ---- Public ----
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
@@ -229,6 +237,19 @@ export interface BugReport {
 export async function getBugReports(): Promise<BugReport[]> {
   const data = await apiFetch<{ reports: BugReport[] }>("/admin/bug-reports");
   return data.reports;
+}
+
+export async function getKnockoutDeadlineConfig(): Promise<{ deadline: string | null }> {
+  return apiFetch("/admin/config/knockout-deadline");
+}
+
+export async function setKnockoutDeadlineConfig(
+  deadline: string | null
+): Promise<{ deadline: string | null }> {
+  return apiFetch("/admin/config/knockout-deadline", {
+    method: "PUT",
+    body: JSON.stringify({ deadline }),
+  });
 }
 
 export async function updateBugReportStatus(
