@@ -225,6 +225,12 @@ export interface BugReport {
   created_at: string;
 }
 
+export interface ConfigItem {
+  PK: string;
+  SK: string;
+  value: string;
+}
+
 export interface BugReportItem {
   PK: string;   // BUG_REPORT#<id>
   SK: string;   // REPORT

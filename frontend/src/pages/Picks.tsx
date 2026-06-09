@@ -7,6 +7,8 @@ import {
   updateThirdsPick,
   getKnockoutPicks,
   updateKnockoutPicks,
+  resetKnockoutPicks,
+  getKnockoutDeadline,
 } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
 import { buildR32Field } from "../lib/bracket";
@@ -73,6 +75,11 @@ export default function Picks() {
   const [thirdsPick, setThirdsPick] = useState<ThirdsPick | null>(null);
   const [knockoutPicks, setKnockoutPicks] = useState<KnockoutPicks>(emptyKnockoutPicks());
 
+  const [knockoutDeadline, setKnockoutDeadline] = useState<string | null>(null);
+  const [knockoutDeadlineLoaded, setKnockoutDeadlineLoaded] = useState(false);
+  const knockoutIsLocked = knockoutDeadlineLoaded && knockoutDeadline !== null && new Date() > new Date(knockoutDeadline);
+  const knockoutCountdown = useCountdown(knockoutDeadline ? new Date(knockoutDeadline) : new Date(8640000000000000));
+
   // Thirdsslots: admin may have assigned which thirds go to which bracket slot
   const [thirdsSlots] = useState<Record<number, string>>({});
 
@@ -96,14 +103,17 @@ export default function Picks() {
     setLoading(true);
     setError(null);
     try {
-      const [gp, tp, kp] = await Promise.all([
+      const [gp, tp, kp, kd] = await Promise.all([
         getGroupPicks(),
         getThirdsPick().catch(() => null),
         getKnockoutPicks().catch(() => null),
+        getKnockoutDeadline().catch(() => ({ deadline: null, locked: false })),
       ]);
       setGroupPicks(gp);
       setThirdsPick(tp);
       if (kp) setKnockoutPicks(kp);
+      setKnockoutDeadline(kd.deadline);
+      setKnockoutDeadlineLoaded(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load picks.");
     } finally {
@@ -180,6 +190,22 @@ export default function Picks() {
     }
   }
 
+  async function handleKnockoutReset() {
+    if (!confirm("This will clear all your knockout bracket picks. Are you sure?")) return;
+    setSavingKnockout(true);
+    setSaveMsg(null);
+    try {
+      await resetKnockoutPicks();
+      setKnockoutPicks(emptyKnockoutPicks());
+      setSaveMsg("Bracket cleared. Start fresh!");
+      setTimeout(() => setSaveMsg(null), 3000);
+    } catch (err: unknown) {
+      setSaveMsg(err instanceof Error ? err.message : "Failed to reset bracket.");
+    } finally {
+      setSavingKnockout(false);
+    }
+  }
+
   const thirdPlaceTeams = getThirdPlaceTeams(groupPicks);
   const r32Field = buildR32Field(groupPicks, thirdsPick, thirdsSlots);
 
@@ -245,27 +271,41 @@ export default function Picks() {
         )}
       </div>
 
-      {/* Bracket fix notice */}
-      {showBracketNotice && knockoutPicks.R16.some(Boolean) && (
-        <div className="mb-6 rounded-xl border border-amber-500/50 bg-amber-900/20 px-4 py-3 flex items-start gap-3">
-          <svg className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          </svg>
-          <div className="flex-1 min-w-0">
-            <p className="text-amber-300 font-semibold text-sm">Bracket matchups updated</p>
-            <p className="text-away-cream/70 text-xs mt-0.5">
-              The R32 bracket has been corrected to match the official FIFA 2026 draw — no same-group teams can meet before the Final. Your existing knockout picks may no longer reflect valid matchups. Please review your bracket.
+      {/* Bracket fix modal */}
+      {showBracketNotice && !loading && knockoutPicks.R16.some(Boolean) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-away-green border-2 border-amber-500 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center shrink-0">
+                <svg className="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-amber-300 font-display tracking-wide">
+                Check Your Knockout Bracket!
+              </h2>
+            </div>
+            <p className="text-away-cream/90 text-sm leading-relaxed mb-3">
+              We updated the R32 bracket to match the official FIFA 2026 draw — no same-group teams can meet before the Final.
             </p>
+            <p className="text-amber-300 text-sm font-semibold mb-6">
+              Your existing knockout picks may no longer reflect valid matchups. Please review and update your bracket before the knockout deadline.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { dismissBracketNotice(); setStep(3); }}
+                className="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-colors"
+              >
+                Review My Bracket
+              </button>
+              <button
+                onClick={dismissBracketNotice}
+                className="py-3 px-4 bg-away-moss hover:bg-away-green/80 text-away-cream/70 rounded-xl transition-colors text-sm border border-away-moss"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
-          <button
-            onClick={dismissBracketNotice}
-            className="shrink-0 text-away-cream/40 hover:text-away-cream/80 transition-colors"
-            aria-label="Dismiss"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       )}
 
@@ -470,26 +510,79 @@ export default function Picks() {
             </p>
           </div>
 
+          {/* Knockout deadline status */}
+          {knockoutDeadlineLoaded && (
+            <div
+              className={`mb-4 rounded-xl border px-4 py-3 flex flex-wrap items-center gap-4 ${
+                knockoutIsLocked
+                  ? "bg-red-900/20 border-red-700/50"
+                  : "bg-away-gold/10 border-away-gold/30"
+              }`}
+            >
+              {knockoutIsLocked ? (
+                <div>
+                  <span className="text-red-400 font-bold text-sm">Knockout Picks Locked</span>
+                  <p className="text-away-cream/60 text-xs">The knockout deadline has passed. You can view your bracket below.</p>
+                </div>
+              ) : knockoutDeadline ? (
+                <>
+                  <div>
+                    <span className="text-away-gold font-bold text-sm">Knockout Deadline:</span>
+                    <span className="text-away-cream/80 text-sm ml-2">
+                      {new Date(knockoutDeadline).toLocaleString("en-US", {
+                        month: "long", day: "numeric", year: "numeric",
+                        hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-away-cream/50 text-xs">Time left:</span>
+                    <span className="text-away-gold font-mono font-bold text-sm">
+                      {knockoutCountdown.days}d {String(knockoutCountdown.hours).padStart(2, "0")}h{" "}
+                      {String(knockoutCountdown.mins).padStart(2, "0")}m {String(knockoutCountdown.secs).padStart(2, "0")}s
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <span className="text-away-gold font-bold text-sm">Knockout Picks Open</span>
+                  <p className="text-away-cream/60 text-xs">No deadline set yet — you can update your bracket freely.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           <BracketView
             r32Field={r32Field}
             thirdsSlots={thirdsSlots}
             picks={knockoutPicks}
             onPicksChange={setKnockoutPicks}
-            locked={isLocked}
+            locked={knockoutIsLocked}
           />
 
           <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
-            <button
-              onClick={() => setStep(2)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-away-green hover:bg-away-moss text-away-cream/80 font-medium transition-colors border border-away-moss"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setStep(2)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-away-green hover:bg-away-moss text-away-cream/80 font-medium transition-colors border border-away-moss"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+              {!knockoutIsLocked && (
+                <button
+                  onClick={handleKnockoutReset}
+                  disabled={savingKnockout}
+                  className="text-sm text-away-cream/40 hover:text-red-400 transition-colors disabled:opacity-50"
+                >
+                  Start from scratch
+                </button>
+              )}
+            </div>
 
-            {!isLocked && (
+            {!knockoutIsLocked && (
               <button
                 onClick={handleKnockoutSave}
                 disabled={savingKnockout}

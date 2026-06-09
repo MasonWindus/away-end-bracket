@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { getItem, putItem, queryItems } from "../lib/db";
+import { deleteItem, getItem, putItem, queryItems } from "../lib/db";
 import {
   AuthError,
   errorResponse,
@@ -21,6 +21,17 @@ const GROUP_CODES: GroupCode[] = [
 
 function isDeadlinePassed(): boolean {
   return new Date() > new Date(PICKS_DEADLINE);
+}
+
+async function getKnockoutDeadlineConfig(): Promise<string | null> {
+  const item = await getItem({ PK: "CONFIG#KNOCKOUT_DEADLINE", SK: "CONFIG" });
+  return item ? (item.value as string) : null;
+}
+
+async function isKnockoutDeadlinePassed(): Promise<boolean> {
+  const deadline = await getKnockoutDeadlineConfig();
+  if (!deadline) return false;
+  return new Date() > new Date(deadline);
 }
 
 function isValidGroupCode(code: string): code is GroupCode {
@@ -60,6 +71,13 @@ export async function handlePicks(
   const method = event.httpMethod;
 
   try {
+    // Public endpoint — no auth required
+    if (method === "GET" && path === "/api/picks/knockout-deadline") {
+      const deadline = await getKnockoutDeadlineConfig();
+      const locked = deadline !== null && new Date() > new Date(deadline);
+      return response(200, { deadline, locked });
+    }
+
     const auth = requireAuth(event);
 
     // GET /api/picks/groups
@@ -95,6 +113,11 @@ export async function handlePicks(
     // PUT /api/picks/knockout
     if (method === "PUT" && path === "/api/picks/knockout") {
       return await putKnockoutPicks(event, auth.userId);
+    }
+
+    // DELETE /api/picks/knockout
+    if (method === "DELETE" && path === "/api/picks/knockout") {
+      return await deleteKnockoutPicks(auth.userId);
     }
 
     return errorResponse(404, "Not found");
@@ -342,12 +365,20 @@ async function getKnockoutPicks(userId: string): Promise<APIGatewayProxyResult> 
   });
 }
 
+async function deleteKnockoutPicks(userId: string): Promise<APIGatewayProxyResult> {
+  if (await isKnockoutDeadlinePassed()) {
+    return errorResponse(403, "Knockout picks are locked. The deadline has passed.");
+  }
+  await deleteItem({ PK: `USER#${userId}`, SK: "PICK#KNOCKOUT" });
+  return response(200, { message: "Knockout picks cleared" });
+}
+
 async function putKnockoutPicks(
   event: APIGatewayProxyEvent,
   userId: string
 ): Promise<APIGatewayProxyResult> {
-  if (isDeadlinePassed()) {
-    return errorResponse(403, "Picks are locked. The deadline has passed.");
+  if (await isKnockoutDeadlinePassed()) {
+    return errorResponse(403, "Knockout picks are locked. The deadline has passed.");
   }
 
   let body: {

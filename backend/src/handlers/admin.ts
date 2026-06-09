@@ -116,6 +116,16 @@ export async function handleAdmin(
       return await updateBugReportStatus(event, bugReportStatusMatch[1]);
     }
 
+    // GET /api/admin/config/knockout-deadline
+    if (method === "GET" && path === "/api/admin/config/knockout-deadline") {
+      return await getKnockoutDeadlineConfig();
+    }
+
+    // PUT /api/admin/config/knockout-deadline
+    if (method === "PUT" && path === "/api/admin/config/knockout-deadline") {
+      return await putKnockoutDeadlineConfig(event);
+    }
+
     return errorResponse(404, "Not found");
   } catch (err) {
     if (err instanceof AuthError) {
@@ -630,6 +640,40 @@ async function updateBugReportStatus(
   });
 
   return response(200, { message: "Status updated" });
+}
+
+async function getKnockoutDeadlineConfig(): Promise<APIGatewayProxyResult> {
+  const item = await getItem({ PK: "CONFIG#KNOCKOUT_DEADLINE", SK: "CONFIG" });
+  return response(200, { deadline: item ? (item.value as string) : null });
+}
+
+async function putKnockoutDeadlineConfig(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  let body: { deadline?: string | null };
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return errorResponse(400, "Invalid JSON body");
+  }
+
+  if (!("deadline" in body)) {
+    return errorResponse(400, "deadline is required (use null to clear)");
+  }
+
+  const { deadline } = body;
+
+  if (deadline !== null && deadline !== undefined) {
+    const d = new Date(deadline);
+    if (isNaN(d.getTime())) {
+      return errorResponse(400, "Invalid deadline format. Use ISO 8601 (e.g. 2026-06-28T16:00:00Z)");
+    }
+    await putItem({ PK: "CONFIG#KNOCKOUT_DEADLINE", SK: "CONFIG", value: deadline });
+  } else {
+    await deleteItem({ PK: "CONFIG#KNOCKOUT_DEADLINE", SK: "CONFIG" });
+  }
+
+  return response(200, { deadline: deadline ?? null });
 }
 
 async function getUsers(): Promise<APIGatewayProxyResult> {
