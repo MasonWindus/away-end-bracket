@@ -94,6 +94,10 @@ export default function Picks() {
   const [showBracketNotice, setShowBracketNotice] = useState(
     () => localStorage.getItem(BRACKET_FIX_NOTICE_KEY) !== "dismissed"
   );
+  // Snapshot whether the user already had picks when the page loaded — used to
+  // gate the bracket-fix notice so it doesn't fire mid-interaction when a user
+  // makes their first pick on an empty bracket.
+  const [hadPicksOnLoad, setHadPicksOnLoad] = useState(false);
   function dismissBracketNotice() {
     localStorage.setItem(BRACKET_FIX_NOTICE_KEY, "dismissed");
     setShowBracketNotice(false);
@@ -111,7 +115,10 @@ export default function Picks() {
       ]);
       setGroupPicks(gp);
       setThirdsPick(tp);
-      if (kp) setKnockoutPicks(kp);
+      if (kp) {
+        setKnockoutPicks(kp);
+        if (kp.R16.some(Boolean)) setHadPicksOnLoad(true);
+      }
       setKnockoutDeadline(kd.deadline);
       setKnockoutDeadlineLoaded(true);
     } catch (err: unknown) {
@@ -272,7 +279,7 @@ export default function Picks() {
       </div>
 
       {/* Bracket fix modal */}
-      {showBracketNotice && !loading && knockoutPicks.R16.some(Boolean) && (
+      {showBracketNotice && !loading && hadPicksOnLoad && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
           <div className="bg-away-green border-2 border-amber-500 rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
