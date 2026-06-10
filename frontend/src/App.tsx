@@ -10,6 +10,7 @@ import Picks from "./pages/Picks";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import PublicBracketPage from "./pages/PublicBracketPage";
 import Admin from "./pages/Admin";
+import About from "./pages/About";
 
 const BRACKET_FIX_NOTICE_KEY = "bracketFixNotice_v1";
 
@@ -96,6 +97,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/about" element={<About />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
