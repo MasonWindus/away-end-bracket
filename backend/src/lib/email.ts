@@ -8,7 +8,7 @@ export async function sendMagicLinkEmail(
   displayName: string,
   token: string
 ): Promise<void> {
-  const magicLink = `${FRONTEND_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  const magicLink = `${FRONTEND_URL}/auth/verify?token=${encodeURIComponent(token)}`;
 
   await resend.emails.send({
     from: "The Away End Bracket <noreply@awayendbracket.com>",
@@ -24,7 +24,7 @@ export async function sendRegistrationEmail(
   displayName: string,
   token: string
 ): Promise<void> {
-  const magicLink = `${FRONTEND_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  const magicLink = `${FRONTEND_URL}/auth/verify?token=${encodeURIComponent(token)}`;
 
   await resend.emails.send({
     from: "The Away End Bracket <noreply@awayendbracket.com>",

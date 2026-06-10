@@ -193,14 +193,7 @@ async function verifyMagicLink(
   try {
     payload = verifyMagicLinkToken(token);
   } catch {
-    return {
-      statusCode: 302,
-      headers: {
-        ...corsHeaders,
-        Location: `${FRONTEND_URL}/login?error=invalid_token`,
-      },
-      body: "",
-    };
+    return errorResponse(400, "Invalid or expired magic link.");
   }
 
   // Check token in DynamoDB (to ensure single-use)
@@ -211,36 +204,15 @@ async function verifyMagicLink(
   }) as MagicTokenItem | undefined;
 
   if (!tokenItem) {
-    return {
-      statusCode: 302,
-      headers: {
-        ...corsHeaders,
-        Location: `${FRONTEND_URL}/login?error=invalid_token`,
-      },
-      body: "",
-    };
+    return errorResponse(400, "Invalid or expired magic link.");
   }
 
   if (tokenItem.used) {
-    return {
-      statusCode: 302,
-      headers: {
-        ...corsHeaders,
-        Location: `${FRONTEND_URL}/login?error=token_used`,
-      },
-      body: "",
-    };
+    return errorResponse(400, "This link has already been used. Please request a new one.");
   }
 
   if (new Date(tokenItem.expires_at) < new Date()) {
-    return {
-      statusCode: 302,
-      headers: {
-        ...corsHeaders,
-        Location: `${FRONTEND_URL}/login?error=token_expired`,
-      },
-      body: "",
-    };
+    return errorResponse(400, "This link has expired. Please request a new one.");
   }
 
   // Mark token as used
@@ -253,14 +225,7 @@ async function verifyMagicLink(
   // email address has been confirmed via the magic link.
   if (tokenItem.pending_registration) {
     if (!tokenItem.display_name || !tokenItem.email) {
-      return {
-        statusCode: 302,
-        headers: {
-          ...corsHeaders,
-          Location: `${FRONTEND_URL}/login?error=invalid_token`,
-        },
-        body: "",
-      };
+      return errorResponse(400, "Invalid or expired magic link.");
     }
 
     const now = new Date().toISOString();
@@ -293,14 +258,7 @@ async function verifyMagicLink(
   }) as UserItem | undefined;
 
   if (!userItem) {
-    return {
-      statusCode: 302,
-      headers: {
-        ...corsHeaders,
-        Location: `${FRONTEND_URL}/login?error=user_not_found`,
-      },
-      body: "",
-    };
+    return errorResponse(500, "Account not found. Please contact support.");
   }
 
   // Create session token
@@ -311,13 +269,12 @@ async function verifyMagicLink(
   );
 
   return {
-    statusCode: 302,
+    statusCode: 200,
     headers: {
       ...corsHeaders,
       "Set-Cookie": makeSessionCookie(sessionToken),
-      Location: `${FRONTEND_URL}/picks`,
     },
-    body: "",
+    body: JSON.stringify({ success: true }),
   };
 }
 
