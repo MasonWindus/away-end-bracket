@@ -18,8 +18,6 @@ import { sendMagicLinkEmail, sendRegistrationEmail } from "../lib/email";
 import { containsProfanity } from "../lib/profanity";
 import { EmailLookupItem, MagicTokenItem, UserItem } from "../types";
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
