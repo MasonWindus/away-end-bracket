@@ -86,6 +86,7 @@ export default function Picks() {
   const [savingKnockout, setSavingKnockout] = useState(false);
   const [savingThirds, setSavingThirds] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
 
   // Track when thirds picks have been invalidated by a group stage change
   const [thirdsInvalidated, setThirdsInvalidated] = useState(false);
@@ -188,8 +189,12 @@ export default function Picks() {
       const { locked: _l, ...rest } = knockoutPicks;
       const saved = await updateKnockoutPicks(rest);
       setKnockoutPicks(saved);
-      setSaveMsg("Bracket picks saved!");
-      setTimeout(() => setSaveMsg(null), 3000);
+      if (saved.Champion) {
+        setShowCompletionModal(true);
+      } else {
+        setSaveMsg("Bracket picks saved!");
+        setTimeout(() => setSaveMsg(null), 3000);
+      }
     } catch (err: unknown) {
       setSaveMsg(err instanceof Error ? err.message : "Failed to save bracket.");
     } finally {
@@ -312,6 +317,39 @@ export default function Picks() {
                 Dismiss
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bracket complete modal */}
+      {showCompletionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-away-green border-2 border-away-gold rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-away-gold/20 rounded-full flex items-center justify-center">
+                <svg className="w-9 h-9 text-away-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-away-gold font-display tracking-wide mb-2">
+              Bracket Complete!
+            </h2>
+            <p className="text-away-cream/80 text-sm mb-3">
+              Your picks are saved and ready to go.
+            </p>
+            <div className="bg-away-moss/60 rounded-xl px-4 py-3 mb-6 border border-away-gold/30">
+              <p className="text-away-cream/50 text-xs uppercase tracking-widest mb-1">Your Champion</p>
+              <p className="text-away-gold font-bold text-lg">
+                {TEAM_NAMES[knockoutPicks.Champion] || knockoutPicks.Champion}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCompletionModal(false)}
+              className="w-full py-3 bg-away-gold hover:bg-away-gold/80 text-away-forest font-bold rounded-xl transition-colors"
+            >
+              Got it!
+            </button>
           </div>
         </div>
       )}
