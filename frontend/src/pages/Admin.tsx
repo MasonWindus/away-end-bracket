@@ -650,6 +650,9 @@ export default function Admin() {
   const [groupResults, setGroupResults] = useState<Record<string, GroupResult>>({});
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const usersPerPage = 50;
   const [recalcResult, setRecalcResult] = useState<string>("");
   const [recalcLoading, setRecalcLoading] = useState(false);
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
@@ -672,13 +675,16 @@ export default function Admin() {
     }
   }
 
-  async function loadUsers() {
+  async function loadUsers(page = 1) {
     setUsersLoading(true);
     try {
-      const users = await getAdminUsers();
-      setAdminUsers(users);
+      const result = await getAdminUsers(page, usersPerPage);
+      setAdminUsers(result.users);
+      setUsersTotal(result.total);
+      setUsersPage(result.page);
     } catch {
       setAdminUsers([]);
+      setUsersTotal(0);
     } finally {
       setUsersLoading(false);
     }
@@ -701,7 +707,7 @@ export default function Admin() {
   }
 
   useEffect(() => {
-    if (tab === "users") loadUsers();
+    if (tab === "users") { setUsersPage(1); loadUsers(1); }
     if (tab === "bugs") loadBugReports();
   }, [tab]);
 
@@ -849,79 +855,104 @@ export default function Admin() {
           <>
             <h2 className="text-xl font-bold text-white mb-4">
               Users
-              {adminUsers.length > 0 && (
-                <span className="text-gray-400 font-normal text-base ml-2">({adminUsers.length} registered)</span>
+              {usersTotal > 0 && (
+                <span className="text-gray-400 font-normal text-base ml-2">({usersTotal} registered)</span>
               )}
             </h2>
             {usersLoading ? (
               <div className="text-emerald-400 animate-pulse py-8 text-center">Loading users...</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-gray-400 border-b border-gray-700">
-                      <th className="text-left py-2 pr-4 font-medium">Name</th>
-                      <th className="text-left py-2 pr-4 font-medium">Email</th>
-                      <th className="text-center py-2 pr-4 font-medium">Groups</th>
-                      <th className="text-center py-2 pr-4 font-medium">Thirds</th>
-                      <th className="text-center py-2 pr-4 font-medium">Bracket</th>
-                      <th className="text-right py-2 pr-4 font-medium">Score</th>
-                      <th className="text-center py-2 font-medium">Pin</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-800">
-                    {adminUsers.map((u) => (
-                      <tr key={u.id} className={`text-gray-300 hover:bg-gray-800/40 ${u.is_pinned ? "bg-yellow-900/10" : ""}`}>
-                        <td className="py-2 pr-4">
-                          {u.display_name}
-                          {u.id === user.id && <span className="text-emerald-400 text-xs ml-2">(you)</span>}
-                          {u.is_pinned && <span className="text-yellow-400 text-xs ml-2">📌 Host</span>}
-                        </td>
-                        <td className="py-2 pr-4 text-gray-400 text-xs">{u.email}</td>
-                        <td className="py-2 pr-4 text-center">
-                          {u.has_group_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
-                        </td>
-                        <td className="py-2 pr-4 text-center">
-                          {u.has_thirds_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
-                        </td>
-                        <td className="py-2 pr-4 text-center">
-                          {u.has_knockout_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
-                        </td>
-                        <td className="py-2 pr-4 text-right font-medium">{u.total_score}</td>
-                        <td className="py-2 text-center">
-                          <button
-                            onClick={async () => {
-                              try {
-                                if (u.is_pinned) {
-                                  await unpinUser(u.id);
-                                } else {
-                                  await pinUser(u.id);
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-gray-400 border-b border-gray-700">
+                        <th className="text-left py-2 pr-4 font-medium">Name</th>
+                        <th className="text-left py-2 pr-4 font-medium">Email</th>
+                        <th className="text-center py-2 pr-4 font-medium">Groups</th>
+                        <th className="text-center py-2 pr-4 font-medium">Thirds</th>
+                        <th className="text-center py-2 pr-4 font-medium">Bracket</th>
+                        <th className="text-right py-2 pr-4 font-medium">Score</th>
+                        <th className="text-center py-2 font-medium">Pin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {adminUsers.map((u) => (
+                        <tr key={u.id} className={`text-gray-300 hover:bg-gray-800/40 ${u.is_pinned ? "bg-yellow-900/10" : ""}`}>
+                          <td className="py-2 pr-4">
+                            {u.display_name}
+                            {u.id === user.id && <span className="text-emerald-400 text-xs ml-2">(you)</span>}
+                            {u.is_pinned && <span className="text-yellow-400 text-xs ml-2">📌 Host</span>}
+                          </td>
+                          <td className="py-2 pr-4 text-gray-400 text-xs">{u.email}</td>
+                          <td className="py-2 pr-4 text-center">
+                            {u.has_group_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
+                          </td>
+                          <td className="py-2 pr-4 text-center">
+                            {u.has_thirds_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
+                          </td>
+                          <td className="py-2 pr-4 text-center">
+                            {u.has_knockout_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
+                          </td>
+                          <td className="py-2 pr-4 text-right font-medium">{u.total_score}</td>
+                          <td className="py-2 text-center">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  if (u.is_pinned) {
+                                    await unpinUser(u.id);
+                                  } else {
+                                    await pinUser(u.id);
+                                  }
+                                  await loadUsers(usersPage);
+                                } catch (err: unknown) {
+                                  alert(err instanceof Error ? err.message : "Error");
                                 }
-                                await loadUsers();
-                              } catch (err: unknown) {
-                                alert(err instanceof Error ? err.message : "Error");
-                              }
-                            }}
-                            className={`text-xs px-2 py-1 rounded transition-colors ${
-                              u.is_pinned
-                                ? "bg-yellow-800/60 text-yellow-300 hover:bg-yellow-800"
-                                : "bg-gray-700 text-gray-400 hover:text-yellow-300 hover:bg-gray-600"
-                            }`}
-                            title={u.is_pinned ? "Remove from Hosts" : "Pin as Host"}
-                          >
-                            {u.is_pinned ? "Unpin" : "Pin"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {adminUsers.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-8 text-center text-gray-500">No users yet.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                              }}
+                              className={`text-xs px-2 py-1 rounded transition-colors ${
+                                u.is_pinned
+                                  ? "bg-yellow-800/60 text-yellow-300 hover:bg-yellow-800"
+                                  : "bg-gray-700 text-gray-400 hover:text-yellow-300 hover:bg-gray-600"
+                              }`}
+                              title={u.is_pinned ? "Remove from Hosts" : "Pin as Host"}
+                            >
+                              {u.is_pinned ? "Unpin" : "Pin"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {adminUsers.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-gray-500">No users yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {usersTotal > usersPerPage && (
+                  <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
+                    <span>
+                      {(usersPage - 1) * usersPerPage + 1}–{Math.min(usersPage * usersPerPage, usersTotal)} of {usersTotal}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => loadUsers(usersPage - 1)}
+                        disabled={usersPage <= 1}
+                        className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Prev
+                      </button>
+                      <button
+                        onClick={() => loadUsers(usersPage + 1)}
+                        disabled={usersPage * usersPerPage >= usersTotal}
+                        className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
