@@ -75,7 +75,7 @@ export async function handleAdmin(
 
     // GET /api/admin/users
     if (method === "GET" && path === "/api/admin/users") {
-      return await getUsers();
+      return await getUsers(event);
     }
 
     // GET /api/admin/matches
@@ -676,20 +676,31 @@ async function putKnockoutDeadlineConfig(
   return response(200, { deadline: deadline ?? null });
 }
 
-async function getUsers(): Promise<APIGatewayProxyResult> {
-  // Scan all USER items
-  const userItems = await scanItems({
+async function getUsers(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const qs = event.queryStringParameters ?? {};
+  const page = Math.max(1, parseInt(qs.page ?? "1", 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(qs.limit ?? "50", 10) || 50));
+
+  const allUserItems = await scanItems({
     FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
     ExpressionAttributeValues: {
       ":prefix": "USER#",
     },
   }) as unknown as UserItem[];
 
+  // Pinned users first, then alphabetically
+  allUserItems.sort((a, b) => {
+    if ((b.is_pinned ? 1 : 0) !== (a.is_pinned ? 1 : 0)) return (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0);
+    return (a.display_name ?? "").localeCompare(b.display_name ?? "");
+  });
+
+  const total = allUserItems.length;
+  const pageItems = allUserItems.slice((page - 1) * limit, page * limit);
+
   const usersWithStatus = await Promise.all(
-    userItems.map(async (user) => {
+    pageItems.map(async (user) => {
       const userId = user.id;
 
-      // Check picks status in parallel
       const [groupPickItems, thirdsPickRaw, knockoutPickRaw, scoresRaw] =
         await Promise.all([
           queryItems({
@@ -723,5 +734,5 @@ async function getUsers(): Promise<APIGatewayProxyResult> {
     })
   );
 
-  return response(200, { users: usersWithStatus });
+  return response(200, { users: usersWithStatus, total, page, limit });
 }

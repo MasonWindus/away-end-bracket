@@ -178,9 +178,13 @@ export async function recalculate(): Promise<{ message: string; processed: numbe
   return apiFetch("/admin/recalculate", { method: "POST" });
 }
 
-export async function getAdminUsers(): Promise<AdminUser[]> {
-  const data = await apiFetch<{ users: AdminUser[] }>("/admin/users");
-  return data.users;
+export async function getAdminUsers(
+  page = 1,
+  limit = 50
+): Promise<{ users: AdminUser[]; total: number; page: number; limit: number }> {
+  return apiFetch<{ users: AdminUser[]; total: number; page: number; limit: number }>(
+    `/admin/users?page=${page}&limit=${limit}`
+  );
 }
 
 export async function getMatches(): Promise<MatchResult[]> {
