@@ -67,8 +67,22 @@ export async function queryItems(
     TableName: TABLE_NAME,
     ...params,
   };
-  const result = await docClient.send(new QueryCommand(fullParams));
-  return (result.Items || []) as Record<string, unknown>[];
+
+  const allItems: Record<string, unknown>[] = [];
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+  do {
+    if (lastEvaluatedKey) {
+      fullParams.ExclusiveStartKey = lastEvaluatedKey;
+    }
+    const result = await docClient.send(new QueryCommand(fullParams));
+    if (result.Items) {
+      allItems.push(...(result.Items as Record<string, unknown>[]));
+    }
+    lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastEvaluatedKey);
+
+  return allItems;
 }
 
 export async function updateItem(
