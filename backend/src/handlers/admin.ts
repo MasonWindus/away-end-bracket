@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { batchWriteItems, deleteItem, getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
+import { batchGetItems, batchWriteItems, deleteItem, getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
 import { AuthError, errorResponse, requireAdmin, response } from "../lib/middleware";
 import { calculateAllScores } from "../lib/scoring";
 import { computeGroupStandings } from "../lib/standings";
