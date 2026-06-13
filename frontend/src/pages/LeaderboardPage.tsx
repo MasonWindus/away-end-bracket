@@ -87,6 +87,16 @@ export default function LeaderboardPage() {
         </p>
       </div>
 
+      {/* Provisional scores notice */}
+      <div className="mb-6 bg-away-moss/40 border border-away-gold/30 rounded-lg px-4 py-3 flex gap-3 items-start">
+        <svg className="w-4 h-4 text-away-gold shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-away-cream/70 text-sm leading-snug">
+          <span className="text-away-gold font-semibold">Scores are provisional</span> during the group stage. Group standings are based on current match results and will shift as more games are played. Final group scores are locked once all group matches are complete.
+        </p>
+      </div>
+
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1 max-w-sm">
