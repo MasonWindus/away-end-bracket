@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { getLeaderboard } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { LeaderboardEntry } from "../types";
 
 const PAGE_SIZE = 50;
 
 export default function LeaderboardPage() {
+  const { user } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [pinned, setPinned] = useState<LeaderboardEntry[]>([]);
+  const [currentUserEntry, setCurrentUserEntry] = useState<LeaderboardEntry | null>(null);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -23,9 +26,10 @@ export default function LeaderboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getLeaderboard(p, s);
+      const data = await getLeaderboard(p, s, user?.id ?? "");
       setEntries(data.entries);
       setPinned(data.pinned);
+      setCurrentUserEntry(data.currentUserEntry ?? null);
       setTotal(data.total);
       setTotalPages(data.totalPages);
       setLastUpdated(new Date());
@@ -38,7 +42,9 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     load(1, "");
-  }, []);
+    setSearch("");
+    setPage(1);
+  }, [user?.id]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -230,6 +236,33 @@ export default function LeaderboardPage() {
         </div>
       )}
 
+      {/* Your position sticky banner */}
+      {!loading && !error && currentUserEntry && (
+        <div className="mb-6 bg-away-green border border-away-gold/60 rounded-xl px-4 py-3 flex items-center gap-4">
+          <div className="shrink-0">
+            <span className="text-away-gold/60 text-xs uppercase tracking-wider font-bold">You</span>
+          </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-away-gold font-bold text-lg">#{currentUserEntry.rank}</span>
+            <span className="text-away-cream font-medium text-sm truncate">{currentUserEntry.display_name}</span>
+          </div>
+          <div className="flex gap-4 ml-auto shrink-0 text-xs">
+            <div className="flex flex-col gap-0.5 items-end">
+              <span className="text-away-cream/40 uppercase tracking-wider">GS</span>
+              <span className="text-away-cream/80 tabular-nums font-medium">{currentUserEntry.group_stage_score}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 items-end">
+              <span className="text-away-cream/40 uppercase tracking-wider">KO</span>
+              <span className="text-away-cream/80 tabular-nums font-medium">{currentUserEntry.knockout_score}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 items-end">
+              <span className="text-away-gold/80 uppercase tracking-wider">Total</span>
+              <span className="text-away-gold font-bold tabular-nums text-sm">{currentUserEntry.total_score}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       {!loading && !error && total > 0 && (
         <>
@@ -268,11 +301,16 @@ export default function LeaderboardPage() {
                 <tbody className="divide-y divide-away-moss/50">
                   {entries.map((entry) => {
                     const badge = rankBadge(entry.rank);
+                    const isCurrentUser = user && entry.userId === user.id;
                     return (
                       <tr
                         key={entry.userId}
                         className={`transition-colors hover:bg-away-moss/30 ${
-                          entry.rank <= 3 ? "bg-away-moss/10" : ""
+                          isCurrentUser
+                            ? "bg-away-gold/10 border-l-2 border-away-gold"
+                            : entry.rank <= 3
+                            ? "bg-away-moss/10"
+                            : ""
                         }`}
                       >
                         <td className="px-4 py-3">
@@ -287,7 +325,14 @@ export default function LeaderboardPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-away-cream font-medium text-sm">{entry.display_name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium text-sm ${isCurrentUser ? "text-away-gold" : "text-away-cream"}`}>
+                              {entry.display_name}
+                            </span>
+                            {isCurrentUser && (
+                              <span className="text-xs bg-away-gold/20 text-away-gold px-1.5 py-0.5 rounded font-bold">You</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="text-away-cream/70 text-sm tabular-nums">

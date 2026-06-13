@@ -109,10 +109,12 @@ export async function getKnockoutDeadline(): Promise<{ deadline: string | null; 
 
 export async function getLeaderboard(
   page = 1,
-  search = ""
-): Promise<{ entries: LeaderboardEntry[]; pinned: LeaderboardEntry[]; total: number; page: number; totalPages: number }> {
+  search = "",
+  userId = ""
+): Promise<{ entries: LeaderboardEntry[]; pinned: LeaderboardEntry[]; total: number; page: number; totalPages: number; currentUserEntry: LeaderboardEntry | null }> {
   const params = new URLSearchParams({ page: String(page) });
   if (search) params.set("search", search);
+  if (userId) params.set("userId", userId);
   return apiFetch(`/leaderboard?${params}`);
 }
 
