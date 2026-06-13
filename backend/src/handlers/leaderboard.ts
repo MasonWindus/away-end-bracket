@@ -48,6 +48,7 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const qs = event.queryStringParameters ?? {};
   const page = Math.max(1, parseInt(qs.page ?? "1", 10) || 1);
   const search = (qs.search ?? "").trim().toLowerCase();
+  const currentUserId = (qs.userId ?? "").trim();
 
   // Query all users via GSI1 (paginated internally)
   const userItems = await queryItems({
@@ -97,6 +98,11 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   // Pinned entries always returned in full (for the hosts spotlight)
   const pinned = ranked.filter((e) => e.is_pinned);
 
+  // Current user's entry always returned regardless of page/search
+  const currentUserEntry = currentUserId
+    ? (ranked.find((e) => e.userId === currentUserId) ?? null)
+    : null;
+
   // Apply search filter then paginate
   const searchFiltered = search
     ? ranked.filter((e) => e.display_name.toLowerCase().includes(search))
@@ -110,7 +116,7 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     safePage * LEADERBOARD_PAGE_SIZE
   );
 
-  return response(200, { entries, pinned, total, page: safePage, totalPages });
+  return response(200, { entries, pinned, total, page: safePage, totalPages, currentUserEntry });
 }
 
 async function getUserBracket(userId: string): Promise<APIGatewayProxyResult> {
