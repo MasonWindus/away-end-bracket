@@ -8,6 +8,7 @@ import {
   UpdateCommand,
   ScanCommand,
   BatchGetCommand,
+  BatchWriteCommand,
   GetCommandInput,
   PutCommandInput,
   DeleteCommandInput,
@@ -129,6 +130,32 @@ export async function batchGetItems(
   }
 
   return allItems;
+}
+
+export async function batchWriteItems(
+  items: Record<string, unknown>[]
+): Promise<void> {
+  if (items.length === 0) return;
+
+  const BATCH_SIZE = 25; // DynamoDB limit
+
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    let requestItems = batch.map((item) => ({ PutRequest: { Item: item } }));
+
+    while (requestItems.length > 0) {
+      const result = await docClient.send(
+        new BatchWriteCommand({
+          RequestItems: { [TABLE_NAME]: requestItems },
+        })
+      );
+      const unprocessed = result.UnprocessedItems?.[TABLE_NAME] ?? [];
+      requestItems = unprocessed as typeof requestItems;
+      if (requestItems.length > 0) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+  }
 }
 
 export async function scanItems(

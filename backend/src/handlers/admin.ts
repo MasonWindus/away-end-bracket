@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { deleteItem, getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
+import { batchWriteItems, deleteItem, getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
 import { AuthError, errorResponse, requireAdmin, response } from "../lib/middleware";
 import { calculateAllScores } from "../lib/scoring";
 import { computeGroupStandings } from "../lib/standings";
@@ -379,64 +379,65 @@ async function recalculateScores(): Promise<APIGatewayProxyResult> {
   const thirdsResult = thirdsResultRaw as unknown as ThirdsResult | null;
   const knockoutResult = knockoutResultRaw as unknown as KnockoutResult | null;
 
-  // Scan all USER items
-  const userItems = await scanItems({
-    FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
-    ExpressionAttributeValues: {
-      ":prefix": "USER#",
-    },
-  }) as unknown as UserItem[];
+  // Fetch users and all pick items in parallel via a single scan each
+  const [userItems, allPickItems] = await Promise.all([
+    scanItems({
+      FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
+      ExpressionAttributeValues: { ":prefix": "USER#" },
+    }) as unknown as Promise<UserItem[]>,
+    scanItems({
+      FilterExpression: "begins_with(PK, :pkPrefix) AND begins_with(SK, :skPrefix)",
+      ExpressionAttributeValues: {
+        ":pkPrefix": "USER#",
+        ":skPrefix": "PICK#",
+      },
+    }),
+  ]);
 
-  let processed = 0;
+  // Group pick items by userId
+  const picksByUser = new Map<string, Record<string, unknown>[]>();
+  for (const item of allPickItems) {
+    const pk = item.PK as string;
+    const userId = pk.replace("USER#", "");
+    if (!picksByUser.has(userId)) picksByUser.set(userId, []);
+    picksByUser.get(userId)!.push(item);
+  }
 
-  for (const user of userItems) {
+  const now = new Date().toISOString();
+  const scoresItems: Record<string, unknown>[] = [];
+  const userScores: { userId: string; total: number }[] = [];
+
+  for (const user of userItems as unknown as UserItem[]) {
     try {
       const userId = user.id;
+      const picks = picksByUser.get(userId) ?? [];
 
-      // Fetch all picks for this user
-      const [groupPickItems, thirdsPickRaw, knockoutPickRaw] = await Promise.all([
-        queryItems({
-          KeyConditionExpression: "PK = :pk AND begins_with(SK, :skPrefix)",
-          ExpressionAttributeValues: {
-            ":pk": `USER#${userId}`,
-            ":skPrefix": "PICK#GROUP#",
-          },
-        }),
-        getItem({ PK: `USER#${userId}`, SK: "PICK#THIRDS" }),
-        getItem({ PK: `USER#${userId}`, SK: "PICK#KNOCKOUT" }),
-      ]);
+      const groupPickItems = picks.filter((p) =>
+        (p.SK as string).startsWith("PICK#GROUP#")
+      ) as unknown as GroupPickItem[];
+      const thirdsPickRaw = picks.find((p) => p.SK === "PICK#THIRDS") as unknown as ThirdsPickItem | undefined;
+      const knockoutPickRaw = picks.find((p) => p.SK === "PICK#KNOCKOUT") as unknown as KnockoutPicks | undefined;
 
-      // Build group picks map
       const allGroupPicks = GROUP_CODES.reduce<Record<GroupCode, GroupPick>>(
         (acc, code) => {
-          const found = (groupPickItems as unknown as GroupPickItem[]).find(
-            (item) => item.SK === `PICK#GROUP#${code}`
-          );
-          if (found) {
-            acc[code] = found as unknown as GroupPick;
-          }
+          const found = groupPickItems.find((item) => item.SK === `PICK#GROUP#${code}`);
+          if (found) acc[code] = found as unknown as GroupPick;
           return acc;
         },
         {} as Record<GroupCode, GroupPick>
       );
 
-      const thirdsPick = thirdsPickRaw as unknown as ThirdsPickItem | null;
-      const thirdsList = thirdsPick?.teams ?? [];
-      const knockoutPick = knockoutPickRaw as unknown as KnockoutPicks | null;
+      const thirdsList = thirdsPickRaw?.teams ?? [];
 
-      // Calculate scores
       const breakdown: ScoreBreakdown = calculateAllScores(
         allGroupPicks,
         thirdsList,
-        knockoutPick,
+        knockoutPickRaw ?? null,
         allGroupResults,
         thirdsResult,
         knockoutResult
       );
 
-      const now = new Date().toISOString();
-
-      // Save scores item
       const scoresItem: ScoresItem = {
         PK: `USER#${userId}`,
         SK: "SCORES",
@@ -446,27 +447,31 @@ async function recalculateScores(): Promise<APIGatewayProxyResult> {
         breakdown,
         last_calculated: now,
       };
-      await putItem(scoresItem as unknown as Record<string, unknown>);
-
-      // Update user item's GSI1SK (for leaderboard ordering)
-      await updateItem({
-        Key: {
-          PK: `USER#${userId}`,
-          SK: `USER#${userId}`,
-        },
-        UpdateExpression: "SET GSI1SK = :score",
-        ExpressionAttributeValues: {
-          ":score": breakdown.total,
-        },
-      });
-
-      processed++;
+      scoresItems.push(scoresItem as unknown as Record<string, unknown>);
+      userScores.push({ userId, total: breakdown.total });
     } catch (userErr) {
       console.error(`Error processing user ${user.id}:`, userErr);
     }
   }
 
-  return response(200, { processed });
+  // Batch-write all SCORES items
+  await batchWriteItems(scoresItems);
+
+  // Update GSI1SK for leaderboard ordering — run in parallel with concurrency cap
+  const CONCURRENCY = 50;
+  for (let i = 0; i < userScores.length; i += CONCURRENCY) {
+    await Promise.all(
+      userScores.slice(i, i + CONCURRENCY).map(({ userId, total }) =>
+        updateItem({
+          Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
+          UpdateExpression: "SET GSI1SK = :score",
+          ExpressionAttributeValues: { ":score": total },
+        })
+      )
+    );
+  }
+
+  return response(200, { processed: scoresItems.length });
 }
 
 async function getMatches(): Promise<APIGatewayProxyResult> {
