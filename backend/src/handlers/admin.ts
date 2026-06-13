@@ -3,6 +3,7 @@ import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { batchGetItems, batchWriteItems, deleteItem, getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
 import { AuthError, errorResponse, requireAdmin, response } from "../lib/middleware";
 import { calculateAllScores } from "../lib/scoring";
+import { computeGroupStandings } from "../lib/standings";
 import {
   BugReport,
   BugReportItem,
@@ -363,20 +364,39 @@ async function recalculateScores(): Promise<APIGatewayProxyResult> {
 
 export async function recalculateScoresBackground(): Promise<void> {
   try {
-    // Fetch all official results (no provisional fallback — alphabetical tiebreaks
-    // on unplayed groups produce meaningless scores)
-    const [allGroupResultsArr, thirdsResultRaw, knockoutResultRaw] = await Promise.all([
+    // Fetch all results + match data for provisional standings
+    const [allGroupResultsArr, thirdsResultRaw, knockoutResultRaw, allMatchItems] = await Promise.all([
       Promise.all(
         GROUP_CODES.map((code) => getItem({ PK: `RESULT#GROUP#${code}`, SK: "RESULT" }))
       ),
       getItem({ PK: "RESULT#THIRDS", SK: "RESULT" }),
       getItem({ PK: "RESULT#KNOCKOUT", SK: "RESULT" }),
+      scanItems({
+        FilterExpression: "begins_with(PK, :prefix)",
+        ExpressionAttributeValues: { ":prefix": "MATCH#GROUP#" },
+      }),
     ]);
+
+    // Build provisional standings map, but only for groups where every team has played
+    const matchesByGroup = (allMatchItems as unknown as MatchResultItem[]).reduce<Record<GroupCode, MatchResultItem[]>>(
+      (acc, item) => {
+        const code = item.group_code;
+        if (!acc[code]) acc[code] = [];
+        acc[code].push(item);
+        return acc;
+      },
+      {} as Record<GroupCode, MatchResultItem[]>
+    );
 
     const allGroupResults = GROUP_CODES.reduce<Record<GroupCode, GroupResult>>(
       (acc, code, idx) => {
         const raw = allGroupResultsArr[idx];
-        if (raw) acc[code] = raw as unknown as GroupResult;
+        if (raw) {
+          acc[code] = raw as unknown as GroupResult;
+        } else {
+          const provisional = computeGroupStandings(code, matchesByGroup[code] ?? [] as unknown as import("../types").MatchResult[]);
+          if (provisional) acc[code] = provisional;
+        }
         return acc;
       },
       {} as Record<GroupCode, GroupResult>

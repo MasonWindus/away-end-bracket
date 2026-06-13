@@ -52,6 +52,9 @@ export function computeGroupStandings(group: GroupCode, matches: MatchResult[]):
     }
   }
 
+  // If any team hasn't played yet, standings are indeterminate — skip provisional scoring
+  if (Object.values(stats).some((s) => s.played === 0)) return null;
+
   const sorted = Object.values(stats).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.gd !== a.gd) return b.gd - a.gd;

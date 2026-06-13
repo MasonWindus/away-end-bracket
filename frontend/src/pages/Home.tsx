@@ -128,7 +128,7 @@ export default function Home() {
                 )}
                 {myEntry && (
                   <p className="text-away-cream/40 text-xs mb-4">
-                    Group stage scores only count groups where all matches are complete. Groups still in progress score 0 until finalised.
+                    Group scores are estimated once every team has played at least one match. Groups with unplayed teams score 0 until then.
                   </p>
                 )}
                 <div className="flex flex-wrap gap-3">
