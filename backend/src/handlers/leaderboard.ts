@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { getItem, queryItems } from "../lib/db";
+import { batchGetItems, getItem, queryItems } from "../lib/db";
 import { AuthError, errorResponse, response } from "../lib/middleware";
 import {
   GroupCode,
@@ -23,7 +23,7 @@ export async function handleLeaderboard(
 
   try {
     if (method === "GET" && path === "/api/leaderboard") {
-      return await getLeaderboard();
+      return await getLeaderboard(event);
     }
 
     const bracketMatch = path.match(/^\/api\/brackets\/([^/]+)$/);
@@ -42,8 +42,14 @@ export async function handleLeaderboard(
   }
 }
 
-async function getLeaderboard(): Promise<APIGatewayProxyResult> {
-  // Query all users via GSI1
+const LEADERBOARD_PAGE_SIZE = 50;
+
+async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const qs = event.queryStringParameters ?? {};
+  const page = Math.max(1, parseInt(qs.page ?? "1", 10) || 1);
+  const search = (qs.search ?? "").trim().toLowerCase();
+
+  // Query all users via GSI1 (paginated internally)
   const userItems = await queryItems({
     IndexName: "GSI1",
     KeyConditionExpression: "GSI1PK = :pk",
@@ -52,45 +58,59 @@ async function getLeaderboard(): Promise<APIGatewayProxyResult> {
     },
   }) as unknown as UserItem[];
 
-  // Build leaderboard entries from user items + scores
-  const entriesWithScores = await Promise.all(
-    userItems.map(async (user) => {
-      const scoresItem = await getItem({
-        PK: `USER#${user.id}`,
-        SK: "SCORES",
-      }) as ScoresItem | undefined;
+  // Batch-fetch all scores in parallel (100 keys per request instead of N individual calls)
+  const scoreKeys = userItems.map((u) => ({ PK: `USER#${u.id}`, SK: "SCORES" }));
+  const scoreItems = await batchGetItems(scoreKeys) as unknown as ScoresItem[];
+  const scoreMap = new Map<string, ScoresItem>();
+  for (const s of scoreItems) {
+    scoreMap.set(s.PK, s);
+  }
 
-      return {
-        userId: user.id,
-        display_name: user.display_name,
-        group_stage_score: scoresItem?.group_stage_score ?? 0,
-        knockout_score: scoresItem?.knockout_score ?? 0,
-        total_score: scoresItem?.total_score ?? 0,
-        is_pinned: user.is_pinned ?? false,
-      };
-    })
-  );
+  // Build full sorted+ranked list
+  const combined = userItems.map((user) => {
+    const s = scoreMap.get(`USER#${user.id}`);
+    return {
+      userId: user.id,
+      display_name: user.display_name,
+      group_stage_score: s?.group_stage_score ?? 0,
+      knockout_score: s?.knockout_score ?? 0,
+      total_score: s?.total_score ?? 0,
+      is_pinned: user.is_pinned ?? false,
+    };
+  });
 
-  // Sort by total score descending, then by display name for tie-breaking
-  entriesWithScores.sort((a, b) => {
+  combined.sort((a, b) => {
     if (b.total_score !== a.total_score) return b.total_score - a.total_score;
     return a.display_name.localeCompare(b.display_name);
   });
 
-  // Assign ranks (ties get same rank)
-  const entries: LeaderboardEntry[] = [];
+  // Assign ranks (ties get same rank) across the full list
+  const ranked: (typeof combined[0] & { rank: number })[] = [];
   let rank = 1;
-  for (let i = 0; i < entriesWithScores.length; i++) {
-    if (i > 0 && entriesWithScores[i].total_score < entriesWithScores[i - 1].total_score) {
+  for (let i = 0; i < combined.length; i++) {
+    if (i > 0 && combined[i].total_score < combined[i - 1].total_score) {
       rank = i + 1;
     }
-    entries.push({
-      rank,
-      ...entriesWithScores[i],
-    });
+    ranked.push({ rank, ...combined[i] });
   }
 
-  return response(200, { entries });
+  // Pinned entries always returned in full (for the hosts spotlight)
+  const pinned = ranked.filter((e) => e.is_pinned);
+
+  // Apply search filter then paginate
+  const searchFiltered = search
+    ? ranked.filter((e) => e.display_name.toLowerCase().includes(search))
+    : ranked;
+
+  const total = searchFiltered.length;
+  const totalPages = Math.max(1, Math.ceil(total / LEADERBOARD_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const entries: LeaderboardEntry[] = searchFiltered.slice(
+    (safePage - 1) * LEADERBOARD_PAGE_SIZE,
+    safePage * LEADERBOARD_PAGE_SIZE
+  );
+
+  return response(200, { entries, pinned, total, page: safePage, totalPages });
 }
 
 async function getUserBracket(userId: string): Promise<APIGatewayProxyResult> {

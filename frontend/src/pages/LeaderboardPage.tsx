@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { getLeaderboard } from "../lib/api";
 import type { LeaderboardEntry } from "../types";
@@ -7,20 +7,27 @@ const PAGE_SIZE = 50;
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [pinned, setPinned] = useState<LeaderboardEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const pinned = entries.filter((e) => e.is_pinned);
+  // Debounce search so we don't fire on every keystroke
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function load() {
+  async function load(p: number, s: string) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getLeaderboard();
-      setEntries(data);
+      const data = await getLeaderboard(p, s);
+      setEntries(data.entries);
+      setPinned(data.pinned);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
       setLastUpdated(new Date());
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load leaderboard.");
@@ -30,22 +37,23 @@ export default function LeaderboardPage() {
   }
 
   useEffect(() => {
-    load();
+    load(1, "");
   }, []);
 
-  // Reset to first page whenever search changes
-  useEffect(() => {
+  function handleSearchChange(value: string) {
+    setSearch(value);
     setPage(1);
-  }, [search]);
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => load(1, value), 300);
+  }
 
-  const filtered = entries.filter((e) =>
-    e.display_name.toLowerCase().includes(search.toLowerCase())
-  );
+  function goToPage(p: number) {
+    setPage(p);
+    load(p, search);
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
+  const safePage = page;
   const startIdx = (safePage - 1) * PAGE_SIZE;
-  const paginated = filtered.slice(startIdx, startIdx + PAGE_SIZE);
 
   function rankBadge(rank: number) {
     if (rank === 1) return "🥇";
@@ -98,13 +106,13 @@ export default function LeaderboardPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by name..."
             className="w-full bg-away-green border border-away-moss rounded-lg pl-9 pr-4 py-2.5 text-away-cream placeholder-away-cream/30 focus:outline-none focus:border-away-gold text-sm"
           />
         </div>
         <button
-          onClick={load}
+          onClick={() => load(page, search)}
           disabled={loading}
           className="flex items-center gap-2 bg-away-green hover:bg-away-moss text-away-cream/80 border border-away-moss px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
         >
@@ -140,7 +148,7 @@ export default function LeaderboardPage() {
       )}
 
       {/* Empty */}
-      {!loading && !error && entries.length === 0 && (
+      {!loading && !error && total === 0 && !search && (
         <div className="text-center py-20">
           <div className="text-5xl mb-4">🏆</div>
           <h3 className="text-xl font-bold text-away-cream mb-2">No picks yet!</h3>
@@ -157,11 +165,11 @@ export default function LeaderboardPage() {
       )}
 
       {/* No results from search */}
-      {!loading && !error && entries.length > 0 && filtered.length === 0 && (
+      {!loading && !error && total === 0 && search && (
         <div className="text-center py-12">
           <p className="text-away-cream/60">No contestants found matching "{search}"</p>
           <button
-            onClick={() => setSearch("")}
+            onClick={() => handleSearchChange("")}
             className="mt-3 text-away-gold hover:text-away-gold-light text-sm underline"
           >
             Clear search
@@ -213,7 +221,7 @@ export default function LeaderboardPage() {
       )}
 
       {/* Table */}
-      {!loading && !error && filtered.length > 0 && (
+      {!loading && !error && total > 0 && (
         <>
           {/* Score key */}
           <div className="flex flex-wrap gap-4 mb-4 text-xs text-away-cream/40">
@@ -248,7 +256,7 @@ export default function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-away-moss/50">
-                  {paginated.map((entry) => {
+                  {entries.map((entry) => {
                     const badge = rankBadge(entry.rank);
                     return (
                       <tr
@@ -305,16 +313,16 @@ export default function LeaderboardPage() {
           {/* Pagination footer */}
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-away-cream/40 text-xs">
-              Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, filtered.length)} of{" "}
-              {filtered.length} contestant{filtered.length !== 1 ? "s" : ""}
+              Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, total)} of{" "}
+              {total} contestant{total !== 1 ? "s" : ""}
               {search ? ` matching "${search}"` : ""}
             </p>
 
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage === 1}
+                  onClick={() => goToPage(Math.max(1, safePage - 1))}
+                  disabled={safePage === 1 || loading}
                   className="px-2.5 py-1.5 rounded text-xs font-medium text-away-cream/60 hover:text-away-cream hover:bg-away-moss border border-away-moss/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   ‹ Prev
@@ -328,7 +336,8 @@ export default function LeaderboardPage() {
                   ) : (
                     <button
                       key={p}
-                      onClick={() => setPage(p)}
+                      onClick={() => goToPage(p)}
+                      disabled={loading}
                       className={`min-w-[2rem] px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
                         p === safePage
                           ? "bg-away-gold text-away-green border-away-gold font-bold"
@@ -341,8 +350,8 @@ export default function LeaderboardPage() {
                 )}
 
                 <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safePage === totalPages}
+                  onClick={() => goToPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage === totalPages || loading}
                   className="px-2.5 py-1.5 rounded text-xs font-medium text-away-cream/60 hover:text-away-cream hover:bg-away-moss border border-away-moss/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   Next ›

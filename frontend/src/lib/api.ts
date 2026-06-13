@@ -107,9 +107,13 @@ export async function getKnockoutDeadline(): Promise<{ deadline: string | null; 
 
 // ---- Public ----
 
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  const data = await apiFetch<{ entries: LeaderboardEntry[] }>("/leaderboard");
-  return data.entries;
+export async function getLeaderboard(
+  page = 1,
+  search = ""
+): Promise<{ entries: LeaderboardEntry[]; pinned: LeaderboardEntry[]; total: number; page: number; totalPages: number }> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (search) params.set("search", search);
+  return apiFetch(`/leaderboard?${params}`);
 }
 
 export async function getUserBracket(userId: string): Promise<PublicBracket> {

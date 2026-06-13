@@ -7,6 +7,7 @@ import {
   QueryCommand,
   UpdateCommand,
   ScanCommand,
+  BatchGetCommand,
   GetCommandInput,
   PutCommandInput,
   DeleteCommandInput,
@@ -94,6 +95,40 @@ export async function updateItem(
   };
   const result = await docClient.send(new UpdateCommand(fullParams));
   return result.Attributes as Record<string, unknown> | undefined;
+}
+
+export async function batchGetItems(
+  keys: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+  if (keys.length === 0) return [];
+
+  const allItems: Record<string, unknown>[] = [];
+  const BATCH_SIZE = 100;
+
+  for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+    const batch = keys.slice(i, i + BATCH_SIZE);
+    const result = await docClient.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [TABLE_NAME]: { Keys: batch },
+        },
+      })
+    );
+    const items = result.Responses?.[TABLE_NAME] ?? [];
+    allItems.push(...(items as Record<string, unknown>[]));
+
+    // Handle unprocessed keys by re-queuing (throttling)
+    let unprocessed = result.UnprocessedKeys?.[TABLE_NAME]?.Keys ?? [];
+    while (unprocessed.length > 0) {
+      const retry = await docClient.send(
+        new BatchGetCommand({ RequestItems: { [TABLE_NAME]: { Keys: unprocessed } } })
+      );
+      allItems.push(...((retry.Responses?.[TABLE_NAME] ?? []) as Record<string, unknown>[]));
+      unprocessed = retry.UnprocessedKeys?.[TABLE_NAME]?.Keys ?? [];
+    }
+  }
+
+  return allItems;
 }
 
 export async function scanItems(
