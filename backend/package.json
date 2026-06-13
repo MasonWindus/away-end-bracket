@@ -8,10 +8,11 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-lambda": "^3.1068.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0",
-    "resend": "^3.0.0",
     "bad-words": "^4.0.0",
     "jsonwebtoken": "^9.0.0",
+    "resend": "^3.0.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

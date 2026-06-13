@@ -1,8 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { batchGetItems, batchWriteItems, deleteItem, getItem, putItem, queryItems, scanItems, updateItem } from "../lib/db";
 import { AuthError, errorResponse, requireAdmin, response } from "../lib/middleware";
 import { calculateAllScores } from "../lib/scoring";
-import { computeGroupStandings } from "../lib/standings";
 import {
   BugReport,
   BugReportItem,
@@ -11,7 +11,6 @@ import {
   GroupResultItem,
   KnockoutPicksItem,
   KnockoutResultItem,
-  MatchResult,
   MatchResultItem,
   ScoreBreakdown,
   ScoresItem,
@@ -66,6 +65,12 @@ export async function handleAdmin(
     // POST /api/admin/results/knockout
     if (method === "POST" && path === "/api/admin/results/knockout") {
       return await postKnockoutResult(event);
+    }
+
+    // GET /api/admin/recalculate/status
+    if (method === "GET" && path === "/api/admin/recalculate/status") {
+      const status = await getItem({ PK: "RECALC#STATUS", SK: "STATUS" });
+      return response(200, status ?? { status: "never_run" });
     }
 
     // POST /api/admin/recalculate
@@ -336,167 +341,177 @@ async function postKnockoutResult(
 }
 
 async function recalculateScores(): Promise<APIGatewayProxyResult> {
-  // Fetch all results + match results in parallel
-  const [allGroupResultsArr, thirdsResultRaw, knockoutResultRaw, allMatchItems] = await Promise.all([
-    Promise.all(
-      GROUP_CODES.map((code) =>
-        getItem({ PK: `RESULT#GROUP#${code}`, SK: "RESULT" })
-      )
-    ),
-    getItem({ PK: "RESULT#THIRDS", SK: "RESULT" }),
-    getItem({ PK: "RESULT#KNOCKOUT", SK: "RESULT" }),
-    scanItems({
-      FilterExpression: "begins_with(PK, :prefix)",
-      ExpressionAttributeValues: { ":prefix": "MATCH#GROUP#" },
-    }),
-  ]);
+  await putItem({
+    PK: "RECALC#STATUS",
+    SK: "STATUS",
+    status: "running",
+    started_at: new Date().toISOString(),
+    processed: 0,
+  });
 
-  // Build final results map, filling gaps with provisional standings from matches
-  const matchesByGroup = (allMatchItems as unknown as MatchResultItem[]).reduce<Record<GroupCode, MatchResult[]>>(
-    (acc, item) => {
-      const code = item.group_code;
-      if (!acc[code]) acc[code] = [];
-      acc[code].push(item as unknown as MatchResult);
-      return acc;
-    },
-    {} as Record<GroupCode, MatchResult[]>
+  const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || "us-east-1" });
+  await lambdaClient.send(
+    new InvokeCommand({
+      FunctionName: process.env.FUNCTION_NAME || "away-end-bracket-api",
+      InvocationType: "Event",
+      Payload: JSON.stringify({ backgroundTask: "recalculate" }),
+    })
   );
 
-  const allGroupResults = GROUP_CODES.reduce<Record<GroupCode, GroupResult>>(
-    (acc, code, idx) => {
-      const raw = allGroupResultsArr[idx];
-      if (raw) {
-        acc[code] = raw as unknown as GroupResult;
-      } else {
-        const provisional = computeGroupStandings(code, matchesByGroup[code] ?? []);
-        if (provisional) acc[code] = provisional;
-      }
-      return acc;
-    },
-    {} as Record<GroupCode, GroupResult>
-  );
+  return response(202, { message: "Recalculation started" });
+}
 
-  const thirdsResult = thirdsResultRaw as unknown as ThirdsResult | null;
-  const knockoutResult = knockoutResultRaw as unknown as KnockoutResult | null;
+export async function recalculateScoresBackground(): Promise<void> {
+  try {
+    // Fetch all official results (no provisional fallback — alphabetical tiebreaks
+    // on unplayed groups produce meaningless scores)
+    const [allGroupResultsArr, thirdsResultRaw, knockoutResultRaw] = await Promise.all([
+      Promise.all(
+        GROUP_CODES.map((code) => getItem({ PK: `RESULT#GROUP#${code}`, SK: "RESULT" }))
+      ),
+      getItem({ PK: "RESULT#THIRDS", SK: "RESULT" }),
+      getItem({ PK: "RESULT#KNOCKOUT", SK: "RESULT" }),
+    ]);
 
-  // Fetch users via scan, then batch-get all picks using known key patterns
-  const userItems = await scanItems({
-    FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
-    ExpressionAttributeValues: { ":prefix": "USER#" },
-  }) as unknown as UserItem[];
-
-  // Build all pick keys upfront (14 per user: 12 groups + thirds + knockout)
-  const pickSKs = [
-    ...GROUP_CODES.map((code) => `PICK#GROUP#${code}`),
-    "PICK#THIRDS",
-    "PICK#KNOCKOUT",
-  ];
-  const allPickKeys = (userItems as unknown as UserItem[]).flatMap((u) =>
-    pickSKs.map((sk) => ({ PK: `USER#${u.id}`, SK: sk }))
-  );
-
-  // Fetch all picks in parallel batches of 100
-  const BATCH_SIZE = 100;
-  const FETCH_CONCURRENCY = 10;
-  const allPickItems: Record<string, unknown>[] = [];
-  const keyBatches: Record<string, unknown>[][] = [];
-  for (let i = 0; i < allPickKeys.length; i += BATCH_SIZE) {
-    keyBatches.push(allPickKeys.slice(i, i + BATCH_SIZE));
-  }
-  for (let i = 0; i < keyBatches.length; i += FETCH_CONCURRENCY) {
-    const results = await Promise.all(
-      keyBatches.slice(i, i + FETCH_CONCURRENCY).map((keys) => batchGetItems(keys))
+    const allGroupResults = GROUP_CODES.reduce<Record<GroupCode, GroupResult>>(
+      (acc, code, idx) => {
+        const raw = allGroupResultsArr[idx];
+        if (raw) acc[code] = raw as unknown as GroupResult;
+        return acc;
+      },
+      {} as Record<GroupCode, GroupResult>
     );
-    for (const batch of results) allPickItems.push(...batch);
-  }
 
-  // Group pick items by userId
-  const picksByUser = new Map<string, Record<string, unknown>[]>();
-  for (const item of allPickItems) {
-    const pk = item.PK as string;
-    const userId = pk.replace("USER#", "");
-    if (!picksByUser.has(userId)) picksByUser.set(userId, []);
-    picksByUser.get(userId)!.push(item);
-  }
+    const thirdsResult = thirdsResultRaw as unknown as ThirdsResult | null;
+    const knockoutResult = knockoutResultRaw as unknown as KnockoutResult | null;
 
-  const now = new Date().toISOString();
-  const scoresItems: Record<string, unknown>[] = [];
-  const userScores: { userId: string; total: number }[] = [];
+    // Scan all users then batch-get all picks using known key patterns
+    const userItems = (await scanItems({
+      FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
+      ExpressionAttributeValues: { ":prefix": "USER#" },
+    })) as unknown as UserItem[];
 
-  for (const user of userItems as unknown as UserItem[]) {
-    try {
-      const userId = user.id;
-      const picks = picksByUser.get(userId) ?? [];
+    const pickSKs = [
+      ...GROUP_CODES.map((code) => `PICK#GROUP#${code}`),
+      "PICK#THIRDS",
+      "PICK#KNOCKOUT",
+    ];
+    const allPickKeys = (userItems as unknown as UserItem[]).flatMap((u) =>
+      pickSKs.map((sk) => ({ PK: `USER#${u.id}`, SK: sk }))
+    );
 
-      const groupPickItems = picks.filter((p) =>
-        (p.SK as string).startsWith("PICK#GROUP#")
-      ) as unknown as GroupPickItem[];
-      const thirdsPickRaw = picks.find((p) => p.SK === "PICK#THIRDS") as unknown as ThirdsPickItem | undefined;
-      const knockoutPickRaw = picks.find((p) => p.SK === "PICK#KNOCKOUT") as unknown as KnockoutPicks | undefined;
-
-      const allGroupPicks = GROUP_CODES.reduce<Record<GroupCode, GroupPick>>(
-        (acc, code) => {
-          const found = groupPickItems.find((item) => item.SK === `PICK#GROUP#${code}`);
-          if (found) acc[code] = found as unknown as GroupPick;
-          return acc;
-        },
-        {} as Record<GroupCode, GroupPick>
-      );
-
-      const thirdsList = thirdsPickRaw?.teams ?? [];
-
-      const breakdown: ScoreBreakdown = calculateAllScores(
-        allGroupPicks,
-        thirdsList,
-        knockoutPickRaw ?? null,
-        allGroupResults,
-        thirdsResult,
-        knockoutResult
-      );
-
-      const scoresItem: ScoresItem = {
-        PK: `USER#${userId}`,
-        SK: "SCORES",
-        group_stage_score: breakdown.group_stage_total,
-        knockout_score: breakdown.knockout_total,
-        total_score: breakdown.total,
-        breakdown,
-        last_calculated: now,
-      };
-      scoresItems.push(scoresItem as unknown as Record<string, unknown>);
-      userScores.push({ userId, total: breakdown.total });
-    } catch (userErr) {
-      console.error(`Error processing user ${user.id}:`, userErr);
+    const BATCH_SIZE = 100;
+    const FETCH_CONCURRENCY = 10;
+    const allPickItems: Record<string, unknown>[] = [];
+    const keyBatches: Record<string, unknown>[][] = [];
+    for (let i = 0; i < allPickKeys.length; i += BATCH_SIZE) {
+      keyBatches.push(allPickKeys.slice(i, i + BATCH_SIZE));
     }
-  }
+    for (let i = 0; i < keyBatches.length; i += FETCH_CONCURRENCY) {
+      const results = await Promise.all(
+        keyBatches.slice(i, i + FETCH_CONCURRENCY).map((keys) => batchGetItems(keys))
+      );
+      for (const batch of results) allPickItems.push(...batch);
+    }
 
-  // Batch-write all SCORES items in parallel (10 batches of 25 at a time)
-  const WRITE_CONCURRENCY = 10;
-  const writeBatches: Record<string, unknown>[][] = [];
-  for (let i = 0; i < scoresItems.length; i += 25) {
-    writeBatches.push(scoresItems.slice(i, i + 25));
-  }
-  for (let i = 0; i < writeBatches.length; i += WRITE_CONCURRENCY) {
-    await Promise.all(
-      writeBatches.slice(i, i + WRITE_CONCURRENCY).map((batch) => batchWriteItems(batch))
-    );
-  }
+    const picksByUser = new Map<string, Record<string, unknown>[]>();
+    for (const item of allPickItems) {
+      const pk = item.PK as string;
+      const userId = pk.replace("USER#", "");
+      if (!picksByUser.has(userId)) picksByUser.set(userId, []);
+      picksByUser.get(userId)!.push(item);
+    }
 
-  // Update GSI1SK for leaderboard ordering in parallel
-  const UPDATE_CONCURRENCY = 100;
-  for (let i = 0; i < userScores.length; i += UPDATE_CONCURRENCY) {
-    await Promise.all(
-      userScores.slice(i, i + UPDATE_CONCURRENCY).map(({ userId, total }) =>
-        updateItem({
-          Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
-          UpdateExpression: "SET GSI1SK = :score",
-          ExpressionAttributeValues: { ":score": total },
-        })
-      )
-    );
-  }
+    const now = new Date().toISOString();
+    const scoresItems: Record<string, unknown>[] = [];
+    const userScores: { userId: string; total: number }[] = [];
 
-  return response(200, { processed: scoresItems.length });
+    for (const user of userItems as unknown as UserItem[]) {
+      try {
+        const userId = user.id;
+        const picks = picksByUser.get(userId) ?? [];
+
+        const groupPickItems = picks.filter((p) =>
+          (p.SK as string).startsWith("PICK#GROUP#")
+        ) as unknown as GroupPickItem[];
+        const thirdsPickRaw = picks.find((p) => p.SK === "PICK#THIRDS") as unknown as ThirdsPickItem | undefined;
+        const knockoutPickRaw = picks.find((p) => p.SK === "PICK#KNOCKOUT") as unknown as KnockoutPicks | undefined;
+
+        const allGroupPicks = GROUP_CODES.reduce<Record<GroupCode, GroupPick>>(
+          (acc, code) => {
+            const found = groupPickItems.find((item) => item.SK === `PICK#GROUP#${code}`);
+            if (found) acc[code] = found as unknown as GroupPick;
+            return acc;
+          },
+          {} as Record<GroupCode, GroupPick>
+        );
+
+        const breakdown: ScoreBreakdown = calculateAllScores(
+          allGroupPicks,
+          picks.find((p) => p.SK === "PICK#THIRDS") ? (thirdsPickRaw as unknown as ThirdsPickItem)?.teams ?? [] : [],
+          knockoutPickRaw ?? null,
+          allGroupResults,
+          thirdsResult,
+          knockoutResult
+        );
+
+        const scoresItem: ScoresItem = {
+          PK: `USER#${userId}`,
+          SK: "SCORES",
+          group_stage_score: breakdown.group_stage_total,
+          knockout_score: breakdown.knockout_total,
+          total_score: breakdown.total,
+          breakdown,
+          last_calculated: now,
+        };
+        scoresItems.push(scoresItem as unknown as Record<string, unknown>);
+        userScores.push({ userId, total: breakdown.total });
+      } catch (userErr) {
+        console.error(`Error processing user ${user.id}:`, userErr);
+      }
+    }
+
+    const WRITE_CONCURRENCY = 10;
+    const writeBatches: Record<string, unknown>[][] = [];
+    for (let i = 0; i < scoresItems.length; i += 25) {
+      writeBatches.push(scoresItems.slice(i, i + 25));
+    }
+    for (let i = 0; i < writeBatches.length; i += WRITE_CONCURRENCY) {
+      await Promise.all(
+        writeBatches.slice(i, i + WRITE_CONCURRENCY).map((batch) => batchWriteItems(batch))
+      );
+    }
+
+    const UPDATE_CONCURRENCY = 100;
+    for (let i = 0; i < userScores.length; i += UPDATE_CONCURRENCY) {
+      await Promise.all(
+        userScores.slice(i, i + UPDATE_CONCURRENCY).map(({ userId, total }) =>
+          updateItem({
+            Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
+            UpdateExpression: "SET GSI1SK = :score",
+            ExpressionAttributeValues: { ":score": total },
+          })
+        )
+      );
+    }
+
+    await putItem({
+      PK: "RECALC#STATUS",
+      SK: "STATUS",
+      status: "complete",
+      processed: scoresItems.length,
+      completed_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    await putItem({
+      PK: "RECALC#STATUS",
+      SK: "STATUS",
+      status: "error",
+      error: err instanceof Error ? err.message : String(err),
+      completed_at: new Date().toISOString(),
+    });
+    throw err;
+  }
 }
 
 async function getMatches(): Promise<APIGatewayProxyResult> {
