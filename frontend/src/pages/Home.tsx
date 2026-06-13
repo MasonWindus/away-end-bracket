@@ -123,7 +123,12 @@ export default function Home() {
                   </div>
                 ) : (
                   <p className="text-away-cream/50 text-sm mb-5">
-                    No score yet — scores update after each recalculation.
+                    No score yet — scores are calculated after each match day.
+                  </p>
+                )}
+                {myEntry && (
+                  <p className="text-away-cream/40 text-xs mb-4">
+                    Group stage scores are provisional until all group matches are played and may change as standings shift.
                   </p>
                 )}
                 <div className="flex flex-wrap gap-3">

@@ -379,20 +379,36 @@ async function recalculateScores(): Promise<APIGatewayProxyResult> {
   const thirdsResult = thirdsResultRaw as unknown as ThirdsResult | null;
   const knockoutResult = knockoutResultRaw as unknown as KnockoutResult | null;
 
-  // Fetch users and all pick items in parallel via a single scan each
-  const [userItems, allPickItems] = await Promise.all([
-    scanItems({
-      FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
-      ExpressionAttributeValues: { ":prefix": "USER#" },
-    }) as unknown as Promise<UserItem[]>,
-    scanItems({
-      FilterExpression: "begins_with(PK, :pkPrefix) AND begins_with(SK, :skPrefix)",
-      ExpressionAttributeValues: {
-        ":pkPrefix": "USER#",
-        ":skPrefix": "PICK#",
-      },
-    }),
-  ]);
+  // Fetch users via scan, then batch-get all picks using known key patterns
+  const userItems = await scanItems({
+    FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
+    ExpressionAttributeValues: { ":prefix": "USER#" },
+  }) as unknown as UserItem[];
+
+  // Build all pick keys upfront (14 per user: 12 groups + thirds + knockout)
+  const pickSKs = [
+    ...GROUP_CODES.map((code) => `PICK#GROUP#${code}`),
+    "PICK#THIRDS",
+    "PICK#KNOCKOUT",
+  ];
+  const allPickKeys = (userItems as unknown as UserItem[]).flatMap((u) =>
+    pickSKs.map((sk) => ({ PK: `USER#${u.id}`, SK: sk }))
+  );
+
+  // Fetch all picks in parallel batches of 100
+  const BATCH_SIZE = 100;
+  const FETCH_CONCURRENCY = 10;
+  const allPickItems: Record<string, unknown>[] = [];
+  const keyBatches: Record<string, unknown>[][] = [];
+  for (let i = 0; i < allPickKeys.length; i += BATCH_SIZE) {
+    keyBatches.push(allPickKeys.slice(i, i + BATCH_SIZE));
+  }
+  for (let i = 0; i < keyBatches.length; i += FETCH_CONCURRENCY) {
+    const results = await Promise.all(
+      keyBatches.slice(i, i + FETCH_CONCURRENCY).map((keys) => batchGetItems(keys))
+    );
+    for (const batch of results) allPickItems.push(...batch);
+  }
 
   // Group pick items by userId
   const picksByUser = new Map<string, Record<string, unknown>[]>();
@@ -454,14 +470,23 @@ async function recalculateScores(): Promise<APIGatewayProxyResult> {
     }
   }
 
-  // Batch-write all SCORES items
-  await batchWriteItems(scoresItems);
-
-  // Update GSI1SK for leaderboard ordering — run in parallel with concurrency cap
-  const CONCURRENCY = 50;
-  for (let i = 0; i < userScores.length; i += CONCURRENCY) {
+  // Batch-write all SCORES items in parallel (10 batches of 25 at a time)
+  const WRITE_CONCURRENCY = 10;
+  const writeBatches: Record<string, unknown>[][] = [];
+  for (let i = 0; i < scoresItems.length; i += 25) {
+    writeBatches.push(scoresItems.slice(i, i + 25));
+  }
+  for (let i = 0; i < writeBatches.length; i += WRITE_CONCURRENCY) {
     await Promise.all(
-      userScores.slice(i, i + CONCURRENCY).map(({ userId, total }) =>
+      writeBatches.slice(i, i + WRITE_CONCURRENCY).map((batch) => batchWriteItems(batch))
+    );
+  }
+
+  // Update GSI1SK for leaderboard ordering in parallel
+  const UPDATE_CONCURRENCY = 100;
+  for (let i = 0; i < userScores.length; i += UPDATE_CONCURRENCY) {
+    await Promise.all(
+      userScores.slice(i, i + UPDATE_CONCURRENCY).map(({ userId, total }) =>
         updateItem({
           Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
           UpdateExpression: "SET GSI1SK = :score",
