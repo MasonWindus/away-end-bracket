@@ -74,10 +74,11 @@ export class AwayEndBracketStack extends cdk.Stack {
     // Grant Lambda access to DynamoDB
     table.grantReadWriteData(apiLambda);
 
-    // Allow Lambda to invoke itself for async background tasks
+    // Allow Lambda to invoke itself for async background tasks.
+    // Use a literal ARN string (not apiLambda.functionArn) to avoid a CDK circular dependency.
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['lambda:InvokeFunction'],
-      resources: [apiLambda.functionArn],
+      resources: [`arn:aws:lambda:${this.region}:${this.account}:function:away-end-bracket-api`],
     }));
 
     // Grant Lambda access to SSM parameters
