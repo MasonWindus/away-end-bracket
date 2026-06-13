@@ -52,11 +52,14 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return;
-    getLeaderboard()
-      .then((entries) => {
-        setTotalEntrants(entries.length);
-        const found = entries.find((e) => e.userId === user.id);
-        setMyEntry(found ?? null);
+    getLeaderboard(1, "")
+      .then((data) => {
+        setTotalEntrants(data.total);
+        // Search by name to locate the user's own entry across all pages
+        return getLeaderboard(1, user.display_name).then((results) => {
+          const found = results.entries.find((e) => e.userId === user.id);
+          setMyEntry(found ?? null);
+        });
       })
       .catch(() => {});
   }, [user]);
