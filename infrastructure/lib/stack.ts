@@ -77,7 +77,7 @@ export class AwayEndBracketStack extends cdk.Stack {
     // Allow Lambda to invoke itself for async background tasks
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['lambda:InvokeFunction'],
-      resources: [apiLambda.functionArn],
+      resources: [`arn:aws:lambda:${this.region}:${this.account}:function:away-end-bracket-api`],
     }));
 
     // Grant Lambda access to SSM parameters
