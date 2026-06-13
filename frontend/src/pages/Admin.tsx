@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import {
@@ -7,6 +7,7 @@ import {
   submitThirdsResult,
   submitKnockoutResult,
   recalculate,
+  getRecalculateStatus,
   getAdminUsers,
   getMatches,
   submitMatch,
@@ -655,6 +656,7 @@ export default function Admin() {
   const usersPerPage = 50;
   const [recalcResult, setRecalcResult] = useState<string>("");
   const [recalcLoading, setRecalcLoading] = useState(false);
+  const recalcPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [bugsLoading, setBugsLoading] = useState(false);
 
@@ -712,14 +714,36 @@ export default function Admin() {
   }, [tab]);
 
   async function handleRecalculate() {
+    if (recalcPollRef.current) clearTimeout(recalcPollRef.current);
     setRecalcLoading(true);
-    setRecalcResult("");
+    setRecalcResult("Starting recalculation...");
+
+    function poll() {
+      recalcPollRef.current = setTimeout(async () => {
+        try {
+          const s = await getRecalculateStatus();
+          if (s.status === "complete") {
+            setRecalcResult(`✓ Recalculated scores for ${s.processed} users.`);
+            setRecalcLoading(false);
+          } else if (s.status === "error") {
+            setRecalcResult(`Error: ${s.error ?? "Unknown error"}`);
+            setRecalcLoading(false);
+          } else {
+            setRecalcResult("Recalculation running…");
+            poll();
+          }
+        } catch {
+          setRecalcResult("Error checking status — recalculation may still be running.");
+          setRecalcLoading(false);
+        }
+      }, 3000);
+    }
+
     try {
-      const result = await recalculate();
-      setRecalcResult(`✓ Recalculated scores for ${result.processed} users.`);
+      await recalculate();
+      poll();
     } catch (err: unknown) {
-      setRecalcResult(err instanceof Error ? err.message : "Error during recalculation");
-    } finally {
+      setRecalcResult(err instanceof Error ? err.message : "Error starting recalculation");
       setRecalcLoading(false);
     }
   }
@@ -803,19 +827,23 @@ export default function Admin() {
         {tab === "recalculate" && (
           <>
             <h2 className="text-xl font-bold text-white mb-4">Recalculate Scores</h2>
-            <p className="text-gray-400 text-sm mb-6">
+            <p className="text-gray-400 text-sm mb-2">
               Run this after entering results to update all user scores and the leaderboard.
-              This operation is idempotent — safe to run multiple times.
+              Runs in the background — you can leave this page once it starts.
+            </p>
+            <p className="text-gray-500 text-xs mb-6">
+              Only groups with official results entered will be scored. Provisional standings are not used.
             </p>
             <button
               onClick={handleRecalculate}
               disabled={recalcLoading}
               className="px-8 py-3 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-semibold text-lg transition-colors"
             >
-              {recalcLoading ? "Recalculating..." : "Recalculate All Scores"}
+              {recalcLoading ? "Running…" : "Recalculate All Scores"}
             </button>
             {recalcResult && (
-              <p className={`mt-4 text-sm ${recalcResult.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+              <p className={`mt-4 text-sm ${recalcResult.startsWith("✓") ? "text-emerald-400" : recalcResult.startsWith("Error") ? "text-red-400" : "text-gray-400"}`}>
+                {recalcLoading && <span className="inline-block w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mr-2 align-middle" />}
                 {recalcResult}
               </p>
             )}

@@ -128,7 +128,7 @@ export default function Home() {
                 )}
                 {myEntry && (
                   <p className="text-away-cream/40 text-xs mb-4">
-                    Group stage scores are provisional until all group matches are played and may change as standings shift.
+                    Group scores are estimated once every team has played at least one match. Groups with unplayed teams score 0 until then.
                   </p>
                 )}
                 <div className="flex flex-wrap gap-3">

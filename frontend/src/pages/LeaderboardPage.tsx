@@ -93,7 +93,7 @@ export default function LeaderboardPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p className="text-away-cream/70 text-sm leading-snug">
-          <span className="text-away-gold font-semibold">Scores are provisional</span> during the group stage. Group standings are based on current match results and will shift as more games are played. Final group scores are locked once all group matches are complete.
+          <span className="text-away-gold font-semibold">Scores are provisional</span> during the group stage. Group standings are estimated from match results once every team in the group has played at least one game. Groups where any team hasn't played yet score 0. Standings will shift as more matches are played.
         </p>
       </div>
 

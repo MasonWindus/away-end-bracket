@@ -178,8 +178,18 @@ export async function getKnockoutResult(): Promise<KnockoutResult | null> {
     .catch(() => null);
 }
 
-export async function recalculate(): Promise<{ message: string; processed: number }> {
+export async function recalculate(): Promise<{ message: string }> {
   return apiFetch("/admin/recalculate", { method: "POST" });
+}
+
+export async function getRecalculateStatus(): Promise<{
+  status: "never_run" | "running" | "complete" | "error";
+  processed?: number;
+  started_at?: string;
+  completed_at?: string;
+  error?: string;
+}> {
+  return apiFetch("/admin/recalculate/status");
 }
 
 export async function getAdminUsers(

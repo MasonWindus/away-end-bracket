@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
@@ -59,18 +60,25 @@ export class AwayEndBracketStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/dist')),
       memorySize: 512,
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.minutes(5),
       environment: {
         DYNAMODB_TABLE: table.tableName,
         JWT_SECRET: jwtSecret.stringValue,
         RESEND_API_KEY: resendApiKey.stringValue,
         FRONTEND_URL: frontendUrl.stringValue,
         NODE_ENV: 'production',
+        FUNCTION_NAME: 'away-end-bracket-api',
       },
     });
 
     // Grant Lambda access to DynamoDB
     table.grantReadWriteData(apiLambda);
+
+    // Allow Lambda to invoke itself for async background tasks
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['lambda:InvokeFunction'],
+      resources: [apiLambda.functionArn],
+    }));
 
     // Grant Lambda access to SSM parameters
     jwtSecret.grantRead(apiLambda);
