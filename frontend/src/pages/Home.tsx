@@ -49,12 +49,14 @@ export default function Home() {
   const countdown = useCountdown(PICKS_DEADLINE);
   const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null);
   const [totalEntrants, setTotalEntrants] = useState(0);
+  const [lateEntryCount, setLateEntryCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     getLeaderboard(1, "")
       .then((data) => {
-        setTotalEntrants(data.total);
+        setTotalEntrants(data.totalEntrants);
+        setLateEntryCount(data.lateEntryCount);
         // Search by name to locate the user's own entry across all pages
         return getLeaderboard(1, user.display_name).then((results) => {
           const found = results.entries.find((e) => e.userId === user.id);
@@ -106,6 +108,9 @@ export default function Home() {
                       </div>
                       <div className="text-away-cream/50 text-xs mt-1">
                         of {totalEntrants} {totalEntrants === 1 ? "entry" : "entries"}
+                        {lateEntryCount > 0 && (
+                          <span className="block text-away-cream/30">{totalEntrants - lateEntryCount} standard · {lateEntryCount} late</span>
+                        )}
                       </div>
                     </div>
                     <div className="text-center">
@@ -163,7 +168,7 @@ export default function Home() {
                 className="inline-flex items-center justify-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors shadow-lg shadow-away-forest/50"
               >
                 <img src="/favicon.png" alt="" className="w-5 h-5 object-contain" aria-hidden="true" />
-                Join the Contest
+                {countdown.expired ? "Join as Late Entry" : "Join the Contest"}
               </Link>
               <Link
                 to="/leaderboard"
@@ -181,8 +186,18 @@ export default function Home() {
         <div className="max-w-2xl mx-auto text-center">
           {countdown.expired ? (
             <div className="text-center">
-              <p className="text-red-400 text-xl font-bold">Picks are locked!</p>
-              <p className="text-away-cream/60 mt-1 text-sm">The deadline has passed.</p>
+              <p className="text-away-gold text-xl font-bold font-display tracking-wide">Late Entries Open</p>
+              <p className="text-away-cream/70 mt-2 text-sm max-w-sm mx-auto leading-relaxed">
+                The picks deadline has passed, but you can still join! Brackets submitted now are flagged as late entries on the leaderboard.
+              </p>
+              {!user && (
+                <Link
+                  to="/register"
+                  className="inline-flex items-center gap-2 mt-5 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-6 py-3 rounded-lg text-sm transition-colors"
+                >
+                  Join as Late Entry
+                </Link>
+              )}
             </div>
           ) : (
             <>
@@ -273,17 +288,18 @@ export default function Home() {
         <section className="py-16 px-4 bg-away-gold/10 border-t border-away-gold/20">
           <div className="max-w-xl mx-auto text-center">
             <h2 className="font-display text-3xl tracking-widest text-away-gold mb-3">
-              Ready to Compete?
+              {countdown.expired ? "Still Want to Play?" : "Ready to Compete?"}
             </h2>
             <p className="text-away-cream/70 mb-6">
-              Sign up with just your name and email — no password needed. We'll send you a magic link to
-              get started.
+              {countdown.expired
+                ? "The deadline has passed but late entries are welcome! Sign up with just your name and email — your bracket will be flagged as a late entry on the leaderboard."
+                : "Sign up with just your name and email — no password needed. We'll send you a magic link to get started."}
             </p>
             <Link
               to="/register"
               className="inline-flex items-center gap-2 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
-              Join the Contest
+              {countdown.expired ? "Join as Late Entry" : "Join the Contest"}
             </Link>
           </div>
         </section>

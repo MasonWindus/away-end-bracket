@@ -109,6 +109,8 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     ? ranked.filter((e) => e.display_name.toLowerCase().includes(search))
     : ranked;
 
+  const totalEntrants = ranked.length;
+  const lateEntryCount = ranked.filter((e) => e.is_late_entry).length;
   const total = searchFiltered.length;
   const totalPages = Math.max(1, Math.ceil(total / LEADERBOARD_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -117,7 +119,7 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     safePage * LEADERBOARD_PAGE_SIZE
   );
 
-  return response(200, { entries, pinned, total, page: safePage, totalPages, currentUserEntry });
+  return response(200, { entries, pinned, total, totalEntrants, lateEntryCount, page: safePage, totalPages, currentUserEntry });
 }
 
 async function getUserBracket(userId: string): Promise<APIGatewayProxyResult> {

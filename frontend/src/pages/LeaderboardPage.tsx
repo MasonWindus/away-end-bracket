@@ -12,6 +12,8 @@ export default function LeaderboardPage() {
   const [pinned, setPinned] = useState<LeaderboardEntry[]>([]);
   const [currentUserEntry, setCurrentUserEntry] = useState<LeaderboardEntry | null>(null);
   const [total, setTotal] = useState(0);
+  const [totalEntrants, setTotalEntrants] = useState(0);
+  const [lateEntryCount, setLateEntryCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,8 @@ export default function LeaderboardPage() {
       setPinned(data.pinned);
       setCurrentUserEntry(data.currentUserEntry ?? null);
       setTotal(data.total);
+      setTotalEntrants(data.totalEntrants);
+      setLateEntryCount(data.lateEntryCount);
       setTotalPages(data.totalPages);
       setLastUpdated(new Date());
     } catch (err: unknown) {
@@ -382,6 +386,9 @@ export default function LeaderboardPage() {
               Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, total)} of{" "}
               {total} contestant{total !== 1 ? "s" : ""}
               {search ? ` matching "${search}"` : ""}
+              {!search && lateEntryCount > 0 && (
+                <span className="text-away-cream/30"> · {totalEntrants - lateEntryCount} standard, {lateEntryCount} late</span>
+              )}
             </p>
 
             {totalPages > 1 && (
