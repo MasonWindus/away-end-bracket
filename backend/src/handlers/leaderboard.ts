@@ -77,6 +77,7 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       knockout_score: s?.knockout_score ?? 0,
       total_score: s?.total_score ?? 0,
       is_pinned: user.is_pinned ?? false,
+      is_late_entry: user.is_late_entry ?? false,
     };
   });
 
@@ -188,6 +189,7 @@ async function getUserBracket(userId: string): Promise<APIGatewayProxyResult> {
   return response(200, {
     userId: userItem.id,
     display_name: userItem.display_name,
+    is_late_entry: userItem.is_late_entry ?? false,
     group_picks: groupPicks,
     thirds_pick: thirdsPick
       ? {

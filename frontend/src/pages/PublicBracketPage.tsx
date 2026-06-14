@@ -88,10 +88,29 @@ export default function PublicBracketPage() {
           <Link to="/leaderboard" className="text-emerald-400 hover:text-emerald-300 text-sm mb-2 inline-block">
             ← Leaderboard
           </Link>
-          <h1 className="text-3xl font-bold text-white">{bracket.display_name}'s Bracket</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-bold text-white">{bracket.display_name}'s Bracket</h1>
+            {bracket.is_late_entry && (
+              <span className="text-sm bg-orange-500/20 text-orange-400 border border-orange-500/50 px-2.5 py-1 rounded-lg font-bold uppercase tracking-widest">
+                Late Entry
+              </span>
+            )}
+          </div>
           <p className="text-gray-400 mt-1">The Away End — World Cup 2026</p>
         </div>
       </div>
+
+      {/* Late entry notice */}
+      {bracket.is_late_entry && (
+        <div className="mb-8 bg-orange-500/10 border border-orange-500/40 rounded-lg px-4 py-3 flex gap-3 items-start">
+          <svg className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <p className="text-orange-300 text-sm leading-snug">
+            <span className="font-bold text-orange-400">Late Entry</span> — This bracket was submitted after the tournament began. Group stage picks were locked when the first match kicked off, so scores from completed groups will be 0.
+          </p>
+        </div>
+      )}
 
       {/* Group Picks */}
       <section className="mb-10">
