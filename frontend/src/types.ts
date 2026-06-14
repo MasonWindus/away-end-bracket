@@ -6,6 +6,7 @@ export interface User {
   display_name: string;
   email: string;
   is_admin: boolean;
+  is_late_entry?: boolean;
 }
 
 export interface GroupPick {
@@ -39,6 +40,7 @@ export interface LeaderboardEntry {
   knockout_score: number;
   total_score: number;
   is_pinned?: boolean;
+  is_late_entry?: boolean;
 }
 
 export interface GroupResult {
@@ -67,6 +69,7 @@ export interface AdminUser {
   display_name: string;
   email: string;
   is_pinned: boolean;
+  is_late_entry: boolean;
   has_group_picks: boolean;
   has_thirds_picks: boolean;
   has_knockout_picks: boolean;
@@ -76,6 +79,7 @@ export interface AdminUser {
 export interface PublicBracket {
   userId: string;
   display_name: string;
+  is_late_entry?: boolean;
   group_picks: GroupPick[];
   thirds_pick: ThirdsPick | null;
   knockout_picks: KnockoutPicks | null;

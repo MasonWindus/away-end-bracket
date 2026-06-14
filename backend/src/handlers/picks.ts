@@ -12,6 +12,7 @@ import {
   KnockoutPicksItem,
   PICKS_DEADLINE,
   ThirdsPickItem,
+  UserItem,
 } from "../types";
 import { GROUPS } from "../data/teams";
 
@@ -32,6 +33,11 @@ async function isKnockoutDeadlinePassed(): Promise<boolean> {
   const deadline = await getKnockoutDeadlineConfig();
   if (!deadline) return false;
   return new Date() > new Date(deadline);
+}
+
+async function isLateEntry(userId: string): Promise<boolean> {
+  const userItem = await getItem({ PK: `USER#${userId}`, SK: `USER#${userId}` }) as UserItem | undefined;
+  return userItem?.is_late_entry ?? false;
 }
 
 function isValidGroupCode(code: string): code is GroupCode {
@@ -176,7 +182,7 @@ async function putGroupPick(
   userId: string,
   groupCode: GroupCode
 ): Promise<APIGatewayProxyResult> {
-  if (isDeadlinePassed()) {
+  if (isDeadlinePassed() && !(await isLateEntry(userId))) {
     return errorResponse(403, "Picks are locked. The deadline has passed.");
   }
 
@@ -260,7 +266,7 @@ async function putThirdsPick(
   event: APIGatewayProxyEvent,
   userId: string
 ): Promise<APIGatewayProxyResult> {
-  if (isDeadlinePassed()) {
+  if (isDeadlinePassed() && !(await isLateEntry(userId))) {
     return errorResponse(403, "Picks are locked. The deadline has passed.");
   }
 
@@ -366,7 +372,7 @@ async function getKnockoutPicks(userId: string): Promise<APIGatewayProxyResult> 
 }
 
 async function deleteKnockoutPicks(userId: string): Promise<APIGatewayProxyResult> {
-  if (await isKnockoutDeadlinePassed()) {
+  if ((await isKnockoutDeadlinePassed()) && !(await isLateEntry(userId))) {
     return errorResponse(403, "Knockout picks are locked. The deadline has passed.");
   }
   await deleteItem({ PK: `USER#${userId}`, SK: "PICK#KNOCKOUT" });
@@ -377,7 +383,7 @@ async function putKnockoutPicks(
   event: APIGatewayProxyEvent,
   userId: string
 ): Promise<APIGatewayProxyResult> {
-  if (await isKnockoutDeadlinePassed()) {
+  if ((await isKnockoutDeadlinePassed()) && !(await isLateEntry(userId))) {
     return errorResponse(403, "Knockout picks are locked. The deadline has passed.");
   }
 

@@ -232,6 +232,14 @@ export async function unpinUser(userId: string): Promise<{ message: string }> {
   return apiFetch(`/admin/users/${encodeURIComponent(userId)}/pin`, { method: "DELETE" });
 }
 
+export async function markLateEntry(userId: string): Promise<{ message: string }> {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/late-entry`, { method: "POST" });
+}
+
+export async function unmarkLateEntry(userId: string): Promise<{ message: string }> {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/late-entry`, { method: "DELETE" });
+}
+
 // ---- Bug Reports ----
 
 export async function submitBugReport(data: {

@@ -111,6 +111,17 @@ export async function handleAdmin(
       return await unpinUser(pinMatch[1]);
     }
 
+    // POST /api/admin/users/:userId/late-entry
+    const lateEntryMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/late-entry$/);
+    if (method === "POST" && lateEntryMatch) {
+      return await markLateEntry(lateEntryMatch[1]);
+    }
+
+    // DELETE /api/admin/users/:userId/late-entry
+    if (method === "DELETE" && lateEntryMatch) {
+      return await unmarkLateEntry(lateEntryMatch[1]);
+    }
+
     // GET /api/admin/bug-reports
     if (method === "GET" && path === "/api/admin/bug-reports") {
       return await getBugReports();
@@ -661,6 +672,31 @@ async function unpinUser(userId: string): Promise<APIGatewayProxyResult> {
   return response(200, { message: "User unpinned" });
 }
 
+async function markLateEntry(userId: string): Promise<APIGatewayProxyResult> {
+  const userItem = await getItem({ PK: `USER#${userId}`, SK: `USER#${userId}` }) as UserItem | undefined;
+  if (!userItem) return errorResponse(404, "User not found");
+
+  await updateItem({
+    Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
+    UpdateExpression: "SET is_late_entry = :val",
+    ExpressionAttributeValues: { ":val": true },
+  });
+
+  return response(200, { message: "User marked as late entry" });
+}
+
+async function unmarkLateEntry(userId: string): Promise<APIGatewayProxyResult> {
+  const userItem = await getItem({ PK: `USER#${userId}`, SK: `USER#${userId}` }) as UserItem | undefined;
+  if (!userItem) return errorResponse(404, "User not found");
+
+  await updateItem({
+    Key: { PK: `USER#${userId}`, SK: `USER#${userId}` },
+    UpdateExpression: "REMOVE is_late_entry",
+  });
+
+  return response(200, { message: "Late entry flag removed" });
+}
+
 async function getBugReports(): Promise<APIGatewayProxyResult> {
   const items = await queryItems({
     IndexName: "GSI1",
@@ -791,6 +827,7 @@ async function getUsers(event: APIGatewayProxyEvent): Promise<APIGatewayProxyRes
         email: user.email,
         is_admin: user.is_admin,
         is_pinned: user.is_pinned ?? false,
+        is_late_entry: user.is_late_entry ?? false,
         has_group_picks: groupsComplete,
         has_thirds_picks: thirdsComplete,
         has_knockout_picks: knockoutComplete,

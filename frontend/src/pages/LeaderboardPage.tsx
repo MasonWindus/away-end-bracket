@@ -207,7 +207,12 @@ export default function LeaderboardPage() {
                 className="bg-away-green border border-away-gold/40 rounded-xl p-4 flex flex-col gap-3"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-away-cream font-bold text-base leading-tight">{entry.display_name}</span>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-away-cream font-bold text-base leading-tight">{entry.display_name}</span>
+                    {entry.is_late_entry && (
+                      <span className="text-xs bg-orange-500/20 text-orange-400 border border-orange-500/40 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide self-start">Late Entry</span>
+                    )}
+                  </div>
                   <span className="text-away-cream/50 text-sm font-bold shrink-0">#{entry.rank}</span>
                 </div>
                 <div className="flex gap-4 text-xs">
@@ -242,9 +247,12 @@ export default function LeaderboardPage() {
           <div className="shrink-0">
             <span className="text-away-gold/60 text-xs uppercase tracking-wider font-bold">You</span>
           </div>
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span className="text-away-gold font-bold text-lg">#{currentUserEntry.rank}</span>
             <span className="text-away-cream font-medium text-sm truncate">{currentUserEntry.display_name}</span>
+            {currentUserEntry.is_late_entry && (
+              <span className="text-xs bg-orange-500/20 text-orange-400 border border-orange-500/40 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide shrink-0">Late Entry</span>
+            )}
           </div>
           <div className="flex gap-4 ml-auto shrink-0 text-xs">
             <div className="flex flex-col gap-0.5 items-end">
@@ -325,12 +333,15 @@ export default function LeaderboardPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className={`font-medium text-sm ${isCurrentUser ? "text-away-gold" : "text-away-cream"}`}>
                               {entry.display_name}
                             </span>
                             {isCurrentUser && (
                               <span className="text-xs bg-away-gold/20 text-away-gold px-1.5 py-0.5 rounded font-bold">You</span>
+                            )}
+                            {entry.is_late_entry && (
+                              <span className="text-xs bg-orange-500/20 text-orange-400 border border-orange-500/40 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Late Entry</span>
                             )}
                           </div>
                         </td>
