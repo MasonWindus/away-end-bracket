@@ -6,6 +6,7 @@ export interface User {
   display_name: string;
   email: string;
   is_admin: boolean;
+  is_late_entry?: boolean;
 }
 
 export interface GroupPick {

@@ -295,6 +295,7 @@ async function getMe(
     display_name: userItem.display_name,
     email: userItem.email,
     is_admin: userItem.is_admin,
+    is_late_entry: userItem.is_late_entry ?? false,
     created_at: userItem.created_at,
   });
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import type { GroupPick, ThirdsPick, KnockoutPicks, GroupCode } from "../types";
+import { useAuth } from "../lib/auth";
 import {
   getGroupPicks,
   updateGroupPick,
@@ -64,8 +65,10 @@ function emptyKnockoutPicks(): KnockoutPicks {
 const STEP_LABELS = ["Group Stage", "Thirds", "Knockout Bracket"];
 
 export default function Picks() {
+  const { user } = useAuth();
+  const isLateEntry = user?.is_late_entry ?? false;
   const countdown = useCountdown(PICKS_DEADLINE);
-  const isLocked = countdown.expired;
+  const isLocked = countdown.expired && !isLateEntry;
 
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(true);
@@ -77,7 +80,7 @@ export default function Picks() {
 
   const [knockoutDeadline, setKnockoutDeadline] = useState<string | null>(null);
   const [knockoutDeadlineLoaded, setKnockoutDeadlineLoaded] = useState(false);
-  const knockoutIsLocked = knockoutDeadlineLoaded && knockoutDeadline !== null && new Date() > new Date(knockoutDeadline);
+  const knockoutIsLocked = !isLateEntry && knockoutDeadlineLoaded && knockoutDeadline !== null && new Date() > new Date(knockoutDeadline);
   const knockoutCountdown = useCountdown(knockoutDeadline ? new Date(knockoutDeadline) : new Date(8640000000000000));
 
   // Thirdsslots: admin may have assigned which thirds go to which bracket slot
