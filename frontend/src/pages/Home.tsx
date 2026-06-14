@@ -49,12 +49,14 @@ export default function Home() {
   const countdown = useCountdown(PICKS_DEADLINE);
   const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null);
   const [totalEntrants, setTotalEntrants] = useState(0);
+  const [lateEntryCount, setLateEntryCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     getLeaderboard(1, "")
       .then((data) => {
-        setTotalEntrants(data.total);
+        setTotalEntrants(data.totalEntrants);
+        setLateEntryCount(data.lateEntryCount);
         // Search by name to locate the user's own entry across all pages
         return getLeaderboard(1, user.display_name).then((results) => {
           const found = results.entries.find((e) => e.userId === user.id);
@@ -106,6 +108,9 @@ export default function Home() {
                       </div>
                       <div className="text-away-cream/50 text-xs mt-1">
                         of {totalEntrants} {totalEntrants === 1 ? "entry" : "entries"}
+                        {lateEntryCount > 0 && (
+                          <span className="block text-away-cream/30">{totalEntrants - lateEntryCount} standard · {lateEntryCount} late</span>
+                        )}
                       </div>
                     </div>
                     <div className="text-center">
