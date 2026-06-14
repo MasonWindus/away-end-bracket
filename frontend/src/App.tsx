@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Link } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import Navbar from "./components/Navbar";
 import BugReportButton from "./components/BugReportButton";
@@ -13,6 +13,8 @@ import Admin from "./pages/Admin";
 import About from "./pages/About";
 
 const BRACKET_FIX_NOTICE_KEY = "bracketFixNotice_v1";
+const LATE_ENTRY_NOTICE_KEY = "lateEntryNotice_v1";
+const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
 
 function ProtectedRoute({
   children,
@@ -42,7 +44,52 @@ function ProtectedRoute({
   return <>{children}</>;
 }
 
+function LateEntryPopup({ onDismiss }: { onDismiss: () => void }) {
+  const { user } = useAuth();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-away-green border-2 border-away-orange rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-away-orange/20 rounded-full flex items-center justify-center shrink-0">
+            <svg className="w-7 h-7 text-away-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-away-cream font-display tracking-wide">
+            Late Entries Still Open!
+          </h2>
+        </div>
+        <p className="text-away-cream/80 text-sm leading-relaxed mb-2">
+          The group stage picks deadline has passed, but <span className="text-away-gold font-semibold">you can still join</span> and fill out a complete bracket.
+        </p>
+        <p className="text-away-cream/60 text-sm leading-relaxed mb-6">
+          Late entries are flagged on the leaderboard so everyone knows picks were made after the tournament began — it's all in good fun, come play along!
+        </p>
+        <div className="flex gap-3">
+          {!user ? (
+            <Link
+              to="/register"
+              onClick={onDismiss}
+              className="flex-1 py-3 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold rounded-xl transition-colors text-center text-sm"
+            >
+              Join as Late Entry
+            </Link>
+          ) : null}
+          <button
+            onClick={onDismiss}
+            className={`py-3 px-5 rounded-xl transition-colors text-sm font-medium border border-away-moss text-away-cream/70 hover:text-away-cream hover:bg-away-moss ${user ? "flex-1" : ""}`}
+          >
+            {user ? "Got it" : "Maybe later"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const deadlinePassed = new Date() > PICKS_DEADLINE;
+
   const [showBracketNotice, setShowBracketNotice] = useState(
     () => localStorage.getItem(BRACKET_FIX_NOTICE_KEY) !== "dismissed"
   );
@@ -51,8 +98,17 @@ export default function App() {
     setShowBracketNotice(false);
   }
 
+  const [showLateEntryPopup, setShowLateEntryPopup] = useState(
+    () => deadlinePassed && localStorage.getItem(LATE_ENTRY_NOTICE_KEY) !== "dismissed"
+  );
+  function dismissLateEntryPopup() {
+    localStorage.setItem(LATE_ENTRY_NOTICE_KEY, "dismissed");
+    setShowLateEntryPopup(false);
+  }
+
   return (
     <div className="min-h-screen bg-away-forest">
+      {showLateEntryPopup && <LateEntryPopup onDismiss={dismissLateEntryPopup} />}
       <Navbar />
       {showBracketNotice && (
         <div className="bg-amber-900/30 border-b border-amber-500/40 px-4 py-2.5 flex items-center gap-3">
