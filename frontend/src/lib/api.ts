@@ -240,8 +240,12 @@ export async function unmarkLateEntry(userId: string): Promise<{ message: string
   return apiFetch(`/admin/users/${encodeURIComponent(userId)}/late-entry`, { method: "DELETE" });
 }
 
-export async function backfillLateEntries(): Promise<{ updated: number; userIds: string[] }> {
-  return apiFetch("/admin/backfill-late-entries", { method: "POST" });
+export async function backfillLateEntries(dryRun = false): Promise<{ dryRun: boolean; updated: number; sample: { id: string; display_name: string; created_at: string }[] }> {
+  return apiFetch(`/admin/backfill-late-entries${dryRun ? "?dryRun=true" : ""}`, { method: "POST" });
+}
+
+export async function revertLateEntriesBackfill(dryRun = false): Promise<{ dryRun: boolean; reverted: number; sample: { id: string; display_name: string; created_at: string }[] }> {
+  return apiFetch(`/admin/revert-late-entries-backfill${dryRun ? "?dryRun=true" : ""}`, { method: "POST" });
 }
 
 // ---- Bug Reports ----

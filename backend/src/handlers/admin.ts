@@ -125,7 +125,14 @@ export async function handleAdmin(
 
     // POST /api/admin/backfill-late-entries
     if (method === "POST" && path === "/api/admin/backfill-late-entries") {
-      return await backfillLateEntries();
+      const dryRun = event.queryStringParameters?.["dryRun"] === "true";
+      return await backfillLateEntries(dryRun);
+    }
+
+    // POST /api/admin/revert-late-entries-backfill
+    if (method === "POST" && path === "/api/admin/revert-late-entries-backfill") {
+      const dryRun = event.queryStringParameters?.["dryRun"] === "true";
+      return await revertLateEntriesBackfill(dryRun);
     }
 
     // GET /api/admin/bug-reports
@@ -678,7 +685,7 @@ async function unpinUser(userId: string): Promise<APIGatewayProxyResult> {
   return response(200, { message: "User unpinned" });
 }
 
-async function backfillLateEntries(): Promise<APIGatewayProxyResult> {
+async function backfillLateEntries(dryRun: boolean): Promise<APIGatewayProxyResult> {
   const allUsers = await scanItems({
     FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
     ExpressionAttributeValues: { ":prefix": "USER#" },
@@ -689,15 +696,50 @@ async function backfillLateEntries(): Promise<APIGatewayProxyResult> {
     (u) => u.created_at && new Date(u.created_at) > deadline && !u.is_late_entry
   );
 
-  for (const user of toUpdate) {
-    await updateItem({
-      Key: { PK: user.PK, SK: user.SK },
-      UpdateExpression: "SET is_late_entry = :val",
-      ExpressionAttributeValues: { ":val": true },
-    });
+  if (!dryRun) {
+    for (const user of toUpdate) {
+      await updateItem({
+        Key: { PK: user.PK, SK: user.SK },
+        UpdateExpression: "SET is_late_entry = :val",
+        ExpressionAttributeValues: { ":val": true },
+      });
+    }
   }
 
-  return response(200, { updated: toUpdate.length, userIds: toUpdate.map((u) => u.id) });
+  return response(200, {
+    dryRun,
+    updated: toUpdate.length,
+    sample: toUpdate.slice(0, 20).map((u) => ({ id: u.id, display_name: u.display_name, created_at: u.created_at })),
+  });
+}
+
+async function revertLateEntriesBackfill(dryRun: boolean): Promise<APIGatewayProxyResult> {
+  const allUsers = await scanItems({
+    FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
+    ExpressionAttributeValues: { ":prefix": "USER#" },
+  }) as unknown as UserItem[];
+
+  const deadline = new Date(PICKS_DEADLINE);
+  // Only revert users whose created_at is after the deadline — these were set by the backfill,
+  // not manually by an admin. Users manually flagged as late entries (created before deadline) are preserved.
+  const toRevert = allUsers.filter(
+    (u) => u.is_late_entry && u.created_at && new Date(u.created_at) > deadline
+  );
+
+  if (!dryRun) {
+    for (const user of toRevert) {
+      await updateItem({
+        Key: { PK: user.PK, SK: user.SK },
+        UpdateExpression: "REMOVE is_late_entry",
+      });
+    }
+  }
+
+  return response(200, {
+    dryRun,
+    reverted: toRevert.length,
+    sample: toRevert.slice(0, 20).map((u) => ({ id: u.id, display_name: u.display_name, created_at: u.created_at })),
+  });
 }
 
 async function markLateEntry(userId: string): Promise<APIGatewayProxyResult> {

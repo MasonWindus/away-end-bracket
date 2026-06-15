@@ -17,6 +17,7 @@ import {
   markLateEntry,
   unmarkLateEntry,
   backfillLateEntries,
+  revertLateEntriesBackfill,
   getBugReports,
   updateBugReportStatus,
   getKnockoutDeadlineConfig,
@@ -662,6 +663,8 @@ export default function Admin() {
   const recalcPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [backfillResult, setBackfillResult] = useState<string>("");
+  const [revertLoading, setRevertLoading] = useState(false);
+  const [revertResult, setRevertResult] = useState<string>("");
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [bugsLoading, setBugsLoading] = useState(false);
 
@@ -753,16 +756,39 @@ export default function Admin() {
     }
   }
 
-  async function handleBackfillLateEntries() {
+  async function handleBackfillLateEntries(dryRun: boolean) {
     setBackfillLoading(true);
     setBackfillResult("");
     try {
-      const result = await backfillLateEntries();
-      setBackfillResult(`✓ Updated ${result.updated} account${result.updated !== 1 ? "s" : ""}.`);
+      const result = await backfillLateEntries(dryRun);
+      const prefix = dryRun ? "Dry run:" : "✓";
+      const verb = dryRun ? "would update" : "updated";
+      const sample = result.sample.length > 0
+        ? ` Sample: ${result.sample.map((u) => `${u.display_name} (${u.created_at.slice(0, 10)})`).join(", ")}${result.updated > result.sample.length ? "…" : ""}`
+        : "";
+      setBackfillResult(`${prefix} ${result.updated} account${result.updated !== 1 ? "s" : ""} ${verb}.${sample}`);
     } catch (err: unknown) {
       setBackfillResult(err instanceof Error ? err.message : "Error running backfill");
     } finally {
       setBackfillLoading(false);
+    }
+  }
+
+  async function handleRevertBackfill(dryRun: boolean) {
+    setRevertLoading(true);
+    setRevertResult("");
+    try {
+      const result = await revertLateEntriesBackfill(dryRun);
+      const prefix = dryRun ? "Dry run:" : "✓";
+      const verb = dryRun ? "would revert" : "reverted";
+      const sample = result.sample.length > 0
+        ? ` Sample: ${result.sample.map((u) => `${u.display_name} (${u.created_at.slice(0, 10)})`).join(", ")}${result.reverted > result.sample.length ? "…" : ""}`
+        : "";
+      setRevertResult(`${prefix} ${result.reverted} account${result.reverted !== 1 ? "s" : ""} ${verb}.${sample}`);
+    } catch (err: unknown) {
+      setRevertResult(err instanceof Error ? err.message : "Error running revert");
+    } finally {
+      setRevertLoading(false);
     }
   }
 
@@ -870,18 +896,55 @@ export default function Admin() {
 
             <h3 className="text-lg font-semibold text-white mb-2">Backfill Late Entries</h3>
             <p className="text-gray-400 text-sm mb-4">
-              Marks any account created after the picks deadline as a late entry. Safe to run multiple times — skips users already flagged.
+              Marks any account created after the picks deadline as a late entry. Run dry run first to preview who would be flagged.
             </p>
-            <button
-              onClick={handleBackfillLateEntries}
-              disabled={backfillLoading}
-              className="px-8 py-3 bg-orange-700 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl font-semibold text-lg transition-colors"
-            >
-              {backfillLoading ? "Running…" : "Backfill Late Entries"}
-            </button>
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={() => handleBackfillLateEntries(true)}
+                disabled={backfillLoading}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+              >
+                {backfillLoading ? "Running…" : "Dry Run"}
+              </button>
+              <button
+                onClick={() => handleBackfillLateEntries(false)}
+                disabled={backfillLoading}
+                className="px-6 py-3 bg-orange-700 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+              >
+                {backfillLoading ? "Running…" : "Run Backfill"}
+              </button>
+            </div>
             {backfillResult && (
-              <p className={`mt-4 text-sm ${backfillResult.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+              <p className={`mt-4 text-sm ${backfillResult.startsWith("✓") ? "text-emerald-400" : backfillResult.startsWith("Dry") ? "text-yellow-400" : "text-red-400"} max-w-xl break-words`}>
                 {backfillResult}
+              </p>
+            )}
+
+            <hr className="border-gray-700 my-8" />
+
+            <h3 className="text-lg font-semibold text-white mb-2">Revert Backfill</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Removes the late entry flag from all accounts that were auto-flagged by the backfill (created after deadline). Manual late entry flags set before the deadline are preserved.
+            </p>
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={() => handleRevertBackfill(true)}
+                disabled={revertLoading}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+              >
+                {revertLoading ? "Running…" : "Dry Run"}
+              </button>
+              <button
+                onClick={() => handleRevertBackfill(false)}
+                disabled={revertLoading}
+                className="px-6 py-3 bg-red-800 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+              >
+                {revertLoading ? "Running…" : "Revert Backfill"}
+              </button>
+            </div>
+            {revertResult && (
+              <p className={`mt-4 text-sm ${revertResult.startsWith("✓") ? "text-emerald-400" : revertResult.startsWith("Dry") ? "text-yellow-400" : "text-red-400"} max-w-xl break-words`}>
+                {revertResult}
               </p>
             )}
           </>
