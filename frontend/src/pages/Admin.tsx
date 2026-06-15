@@ -16,6 +16,7 @@ import {
   unpinUser,
   markLateEntry,
   unmarkLateEntry,
+  backfillLateEntries,
   getBugReports,
   updateBugReportStatus,
   getKnockoutDeadlineConfig,
@@ -659,6 +660,8 @@ export default function Admin() {
   const [recalcResult, setRecalcResult] = useState<string>("");
   const [recalcLoading, setRecalcLoading] = useState(false);
   const recalcPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [backfillLoading, setBackfillLoading] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string>("");
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [bugsLoading, setBugsLoading] = useState(false);
 
@@ -747,6 +750,19 @@ export default function Admin() {
     } catch (err: unknown) {
       setRecalcResult(err instanceof Error ? err.message : "Error starting recalculation");
       setRecalcLoading(false);
+    }
+  }
+
+  async function handleBackfillLateEntries() {
+    setBackfillLoading(true);
+    setBackfillResult("");
+    try {
+      const result = await backfillLateEntries();
+      setBackfillResult(`✓ Updated ${result.updated} account${result.updated !== 1 ? "s" : ""}.`);
+    } catch (err: unknown) {
+      setBackfillResult(err instanceof Error ? err.message : "Error running backfill");
+    } finally {
+      setBackfillLoading(false);
     }
   }
 
@@ -847,6 +863,25 @@ export default function Admin() {
               <p className={`mt-4 text-sm ${recalcResult.startsWith("✓") ? "text-emerald-400" : recalcResult.startsWith("Error") ? "text-red-400" : "text-gray-400"}`}>
                 {recalcLoading && <span className="inline-block w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mr-2 align-middle" />}
                 {recalcResult}
+              </p>
+            )}
+
+            <hr className="border-gray-700 my-8" />
+
+            <h3 className="text-lg font-semibold text-white mb-2">Backfill Late Entries</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Marks any account created after the picks deadline as a late entry. Safe to run multiple times — skips users already flagged.
+            </p>
+            <button
+              onClick={handleBackfillLateEntries}
+              disabled={backfillLoading}
+              className="px-8 py-3 bg-orange-700 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl font-semibold text-lg transition-colors"
+            >
+              {backfillLoading ? "Running…" : "Backfill Late Entries"}
+            </button>
+            {backfillResult && (
+              <p className={`mt-4 text-sm ${backfillResult.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                {backfillResult}
               </p>
             )}
           </>

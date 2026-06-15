@@ -240,6 +240,10 @@ export async function unmarkLateEntry(userId: string): Promise<{ message: string
   return apiFetch(`/admin/users/${encodeURIComponent(userId)}/late-entry`, { method: "DELETE" });
 }
 
+export async function backfillLateEntries(): Promise<{ updated: number; userIds: string[] }> {
+  return apiFetch("/admin/backfill-late-entries", { method: "POST" });
+}
+
 // ---- Bug Reports ----
 
 export async function submitBugReport(data: {
