@@ -16,7 +16,7 @@ import {
 } from "../lib/middleware";
 import { sendMagicLinkEmail, sendRegistrationEmail } from "../lib/email";
 import { containsProfanity } from "../lib/profanity";
-import { EmailLookupItem, MagicTokenItem, UserItem } from "../types";
+import { EmailLookupItem, MagicTokenItem, PICKS_DEADLINE, UserItem } from "../types";
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -227,6 +227,7 @@ async function verifyMagicLink(
     }
 
     const now = new Date().toISOString();
+    const registeredAfterDeadline = new Date() > new Date(PICKS_DEADLINE);
     const userItem: UserItem = {
       PK: `USER#${payload.userId}`,
       SK: `USER#${payload.userId}`,
@@ -237,6 +238,7 @@ async function verifyMagicLink(
       email: tokenItem.email,
       is_admin: false,
       created_at: now,
+      ...(registeredAfterDeadline && { is_late_entry: true }),
     };
 
     const emailLookup: EmailLookupItem = {
