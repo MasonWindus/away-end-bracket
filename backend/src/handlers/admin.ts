@@ -23,6 +23,7 @@ import {
   KnockoutPicks,
   KnockoutResult,
   ThirdsResult,
+  PICKS_DEADLINE,
 } from "../types";
 import { GROUPS } from "../data/teams";
 
@@ -120,6 +121,11 @@ export async function handleAdmin(
     // DELETE /api/admin/users/:userId/late-entry
     if (method === "DELETE" && lateEntryMatch) {
       return await unmarkLateEntry(lateEntryMatch[1]);
+    }
+
+    // POST /api/admin/backfill-late-entries
+    if (method === "POST" && path === "/api/admin/backfill-late-entries") {
+      return await backfillLateEntries();
     }
 
     // GET /api/admin/bug-reports
@@ -670,6 +676,28 @@ async function unpinUser(userId: string): Promise<APIGatewayProxyResult> {
   });
 
   return response(200, { message: "User unpinned" });
+}
+
+async function backfillLateEntries(): Promise<APIGatewayProxyResult> {
+  const allUsers = await scanItems({
+    FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
+    ExpressionAttributeValues: { ":prefix": "USER#" },
+  }) as unknown as UserItem[];
+
+  const deadline = new Date(PICKS_DEADLINE);
+  const toUpdate = allUsers.filter(
+    (u) => u.created_at && new Date(u.created_at) > deadline && !u.is_late_entry
+  );
+
+  for (const user of toUpdate) {
+    await updateItem({
+      Key: { PK: user.PK, SK: user.SK },
+      UpdateExpression: "SET is_late_entry = :val",
+      ExpressionAttributeValues: { ":val": true },
+    });
+  }
+
+  return response(200, { updated: toUpdate.length, userIds: toUpdate.map((u) => u.id) });
 }
 
 async function markLateEntry(userId: string): Promise<APIGatewayProxyResult> {
