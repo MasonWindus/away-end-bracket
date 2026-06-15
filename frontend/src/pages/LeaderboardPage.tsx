@@ -253,7 +253,12 @@ export default function LeaderboardPage() {
           </div>
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span className="text-away-gold font-bold text-lg">#{currentUserEntry.rank}</span>
-            <span className="text-away-cream font-medium text-sm truncate">{currentUserEntry.display_name}</span>
+            <span className="text-away-cream font-medium text-sm truncate">
+                {currentUserEntry.display_name}
+                {currentUserEntry.discriminator && (
+                  <span className="text-away-cream/30 font-normal text-xs ml-0.5">#{currentUserEntry.discriminator}</span>
+                )}
+              </span>
             {currentUserEntry.is_late_entry && (
               <span className="text-xs bg-orange-500/20 text-orange-400 border border-orange-500/40 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide shrink-0">Late Entry</span>
             )}
@@ -340,6 +345,9 @@ export default function LeaderboardPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className={`font-medium text-sm ${isCurrentUser ? "text-away-gold" : "text-away-cream"}`}>
                               {entry.display_name}
+                              {entry.discriminator && (
+                                <span className="text-away-cream/30 font-normal text-xs ml-0.5">#{entry.discriminator}</span>
+                              )}
                             </span>
                             {isCurrentUser && (
                               <span className="text-xs bg-away-gold/20 text-away-gold px-1.5 py-0.5 rounded font-bold">You</span>

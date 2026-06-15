@@ -36,6 +36,7 @@ export interface LeaderboardEntry {
   rank: number;
   userId: string;
   display_name: string;
+  discriminator?: string;
   group_stage_score: number;
   knockout_score: number;
   total_score: number;
