@@ -44,6 +44,14 @@ export async function handleLeaderboard(
 
 const LEADERBOARD_PAGE_SIZE = 50;
 
+function makeDiscriminator(userId: string): string {
+  let h = 5381;
+  for (let i = 0; i < userId.length; i++) {
+    h = ((h << 5) + h + userId.charCodeAt(i)) & 0xffff;
+  }
+  return h.toString(16).toUpperCase().padStart(4, "0");
+}
+
 async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const qs = event.queryStringParameters ?? {};
   const page = Math.max(1, parseInt(qs.page ?? "1", 10) || 1);
@@ -96,21 +104,36 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     ranked.push({ rank, ...combined[i] });
   }
 
+  // Attach a deterministic 4-char discriminator to non-pinned entries whose
+  // display_name collides with at least one other user (case-insensitive).
+  const nameCounts = new Map<string, number>();
+  for (const e of ranked) {
+    const key = e.display_name.toLowerCase();
+    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+  }
+  const withDiscriminators = ranked.map((e) => ({
+    ...e,
+    discriminator:
+      !e.is_pinned && (nameCounts.get(e.display_name.toLowerCase()) ?? 0) > 1
+        ? makeDiscriminator(e.userId)
+        : undefined,
+  }));
+
   // Pinned entries always returned in full (for the hosts spotlight)
-  const pinned = ranked.filter((e) => e.is_pinned);
+  const pinned = withDiscriminators.filter((e) => e.is_pinned);
 
   // Current user's entry always returned regardless of page/search
   const currentUserEntry = currentUserId
-    ? (ranked.find((e) => e.userId === currentUserId) ?? null)
+    ? (withDiscriminators.find((e) => e.userId === currentUserId) ?? null)
     : null;
 
   // Apply search filter then paginate
   const searchFiltered = search
-    ? ranked.filter((e) => e.display_name.toLowerCase().includes(search))
-    : ranked;
+    ? withDiscriminators.filter((e) => e.display_name.toLowerCase().includes(search))
+    : withDiscriminators;
 
-  const totalEntrants = ranked.length;
-  const lateEntryCount = ranked.filter((e) => e.is_late_entry).length;
+  const totalEntrants = withDiscriminators.length;
+  const lateEntryCount = withDiscriminators.filter((e) => e.is_late_entry).length;
   const total = searchFiltered.length;
   const totalPages = Math.max(1, Math.ceil(total / LEADERBOARD_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
