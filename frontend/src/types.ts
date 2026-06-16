@@ -69,8 +69,10 @@ export interface AdminUser {
   id: string;
   display_name: string;
   email: string;
+  is_admin: boolean;
   is_pinned: boolean;
   is_late_entry: boolean;
+  created_at: string | null;
   has_group_picks: boolean;
   has_thirds_picks: boolean;
   has_knockout_picks: boolean;

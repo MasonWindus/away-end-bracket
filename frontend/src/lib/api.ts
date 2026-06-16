@@ -196,10 +196,13 @@ export async function getRecalculateStatus(): Promise<{
 
 export async function getAdminUsers(
   page = 1,
-  limit = 50
+  limit = 50,
+  search = ""
 ): Promise<{ users: AdminUser[]; total: number; page: number; limit: number }> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (search) params.set("search", search);
   return apiFetch<{ users: AdminUser[]; total: number; page: number; limit: number }>(
-    `/admin/users?page=${page}&limit=${limit}`
+    `/admin/users?${params}`
   );
 }
 
