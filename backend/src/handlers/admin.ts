@@ -809,13 +809,22 @@ async function getUsers(event: APIGatewayProxyEvent): Promise<APIGatewayProxyRes
   const qs = event.queryStringParameters ?? {};
   const page = Math.max(1, parseInt(qs.page ?? "1", 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(qs.limit ?? "50", 10) || 50));
+  const search = (qs.search ?? "").trim().toLowerCase();
 
-  const allUserItems = await scanItems({
+  let allUserItems = await scanItems({
     FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
     ExpressionAttributeValues: {
       ":prefix": "USER#",
     },
   }) as unknown as UserItem[];
+
+  if (search) {
+    allUserItems = allUserItems.filter(
+      (u) =>
+        (u.display_name ?? "").toLowerCase().includes(search) ||
+        (u.email ?? "").toLowerCase().includes(search)
+    );
+  }
 
   // Pinned users first, then alphabetically
   allUserItems.sort((a, b) => {
@@ -856,6 +865,7 @@ async function getUsers(event: APIGatewayProxyEvent): Promise<APIGatewayProxyRes
         is_admin: user.is_admin,
         is_pinned: user.is_pinned ?? false,
         is_late_entry: user.is_late_entry ?? false,
+        created_at: user.created_at ?? null,
         has_group_picks: groupsComplete,
         has_thirds_picks: thirdsComplete,
         has_knockout_picks: knockoutComplete,

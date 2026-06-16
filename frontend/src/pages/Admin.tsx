@@ -656,6 +656,7 @@ export default function Admin() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersPage, setUsersPage] = useState(1);
   const [usersTotal, setUsersTotal] = useState(0);
+  const [usersSearch, setUsersSearch] = useState("");
   const usersPerPage = 50;
   const [recalcResult, setRecalcResult] = useState<string>("");
   const [recalcLoading, setRecalcLoading] = useState(false);
@@ -682,10 +683,10 @@ export default function Admin() {
     }
   }
 
-  async function loadUsers(page = 1) {
+  async function loadUsers(page = 1, search = usersSearch) {
     setUsersLoading(true);
     try {
-      const result = await getAdminUsers(page, usersPerPage);
+      const result = await getAdminUsers(page, usersPerPage, search);
       setAdminUsers(result.users);
       setUsersTotal(result.total);
       setUsersPage(result.page);
@@ -918,12 +919,25 @@ export default function Admin() {
 
         {tab === "users" && (
           <>
-            <h2 className="text-xl font-bold text-white mb-4">
-              Users
-              {usersTotal > 0 && (
-                <span className="text-gray-400 font-normal text-base ml-2">({usersTotal} registered)</span>
-              )}
-            </h2>
+            <div className="flex items-center justify-between mb-4 gap-4">
+              <h2 className="text-xl font-bold text-white">
+                Users
+                {usersTotal > 0 && (
+                  <span className="text-gray-400 font-normal text-base ml-2">({usersTotal} registered)</span>
+                )}
+              </h2>
+              <input
+                type="search"
+                placeholder="Search by name or email..."
+                value={usersSearch}
+                onChange={(e) => {
+                  const q = e.target.value;
+                  setUsersSearch(q);
+                  loadUsers(1, q);
+                }}
+                className="bg-gray-800 border border-gray-600 text-gray-200 text-sm rounded px-3 py-1.5 w-64 placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
             {usersLoading ? (
               <div className="text-emerald-400 animate-pulse py-8 text-center">Loading users...</div>
             ) : (
@@ -934,6 +948,9 @@ export default function Admin() {
                       <tr className="text-gray-400 border-b border-gray-700">
                         <th className="text-left py-2 pr-4 font-medium">Name</th>
                         <th className="text-left py-2 pr-4 font-medium">Email</th>
+                        <th className="text-left py-2 pr-4 font-medium">ID</th>
+                        <th className="text-center py-2 pr-4 font-medium">Admin</th>
+                        <th className="text-left py-2 pr-4 font-medium">Created</th>
                         <th className="text-center py-2 pr-4 font-medium">Groups</th>
                         <th className="text-center py-2 pr-4 font-medium">Thirds</th>
                         <th className="text-center py-2 pr-4 font-medium">Bracket</th>
@@ -952,6 +969,13 @@ export default function Admin() {
                             {u.is_late_entry && <span className="text-orange-400 text-xs ml-2">⏰ Late</span>}
                           </td>
                           <td className="py-2 pr-4 text-gray-400 text-xs">{u.email}</td>
+                          <td className="py-2 pr-4 text-gray-500 text-xs font-mono">{u.id}</td>
+                          <td className="py-2 pr-4 text-center">
+                            {u.is_admin ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
+                          </td>
+                          <td className="py-2 pr-4 text-gray-400 text-xs whitespace-nowrap">
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString() : <span className="text-gray-600">—</span>}
+                          </td>
                           <td className="py-2 pr-4 text-center">
                             {u.has_group_picks ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
                           </td>
@@ -1014,7 +1038,7 @@ export default function Admin() {
                       ))}
                       {adminUsers.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="py-8 text-center text-gray-500">No users yet.</td>
+                          <td colSpan={11} className="py-8 text-center text-gray-500">No users yet.</td>
                         </tr>
                       )}
                     </tbody>
