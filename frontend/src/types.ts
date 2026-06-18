@@ -97,3 +97,21 @@ export interface MatchResult {
   away_goals: number;
   entered_at: string;
 }
+
+export interface TeamTableRow {
+  team: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  gf: number;
+  ga: number;
+  gd: number;
+  points: number;
+}
+
+export interface LiveGroupStandings {
+  group_code: GroupCode;
+  table: TeamTableRow[];
+  matches: MatchResult[];
+}

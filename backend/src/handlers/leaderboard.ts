@@ -1,11 +1,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { batchGetItems, getItem, queryItems } from "../lib/db";
+import { batchGetItems, getItem, queryItems, scanItems } from "../lib/db";
 import { AuthError, errorResponse, response } from "../lib/middleware";
+import { computeLiveGroupTable } from "../lib/standings";
 import {
   GroupCode,
   GroupPickItem,
   KnockoutPicksItem,
   LeaderboardEntry,
+  MatchResult,
+  MatchResultItem,
   ScoresItem,
   ThirdsPickItem,
   UserItem,
@@ -24,6 +27,10 @@ export async function handleLeaderboard(
   try {
     if (method === "GET" && path === "/api/leaderboard") {
       return await getLeaderboard(event);
+    }
+
+    if (method === "GET" && path === "/api/standings") {
+      return await getStandings();
     }
 
     const bracketMatch = path.match(/^\/api\/brackets\/([^/]+)$/);
@@ -143,6 +150,39 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   );
 
   return response(200, { entries, pinned, total, totalEntrants, lateEntryCount, page: safePage, totalPages, currentUserEntry });
+}
+
+async function getStandings(): Promise<APIGatewayProxyResult> {
+  const items = (await scanItems({
+    FilterExpression: "begins_with(PK, :prefix)",
+    ExpressionAttributeValues: { ":prefix": "MATCH#GROUP#" },
+  })) as unknown as MatchResultItem[];
+
+  const matchesByGroup = items.reduce<Record<GroupCode, MatchResult[]>>((acc, item) => {
+    const code = item.group_code;
+    if (!acc[code]) acc[code] = [];
+    acc[code].push({
+      match_id: item.match_id,
+      group_code: item.group_code,
+      home_team: item.home_team,
+      away_team: item.away_team,
+      home_goals: item.home_goals,
+      away_goals: item.away_goals,
+      entered_at: item.entered_at,
+    });
+    return acc;
+  }, {} as Record<GroupCode, MatchResult[]>);
+
+  const groups = GROUP_CODES.map((code) => {
+    const matches = (matchesByGroup[code] ?? []).sort((a, b) => a.entered_at.localeCompare(b.entered_at));
+    return {
+      group_code: code,
+      table: computeLiveGroupTable(code, matches),
+      matches,
+    };
+  });
+
+  return response(200, { groups });
 }
 
 async function getUserBracket(userId: string): Promise<APIGatewayProxyResult> {

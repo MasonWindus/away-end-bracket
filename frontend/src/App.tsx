@@ -8,6 +8,7 @@ import Register from "./pages/Register";
 import Verify from "./pages/Verify";
 import Picks from "./pages/Picks";
 import LeaderboardPage from "./pages/LeaderboardPage";
+import StandingsPage from "./pages/StandingsPage";
 import PublicBracketPage from "./pages/PublicBracketPage";
 import Admin from "./pages/Admin";
 import About from "./pages/About";
@@ -144,6 +145,7 @@ export default function App() {
             }
           />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/standings" element={<StandingsPage />} />
           <Route path="/bracket/:userId" element={<PublicBracketPage />} />
           <Route
             path="/admin"

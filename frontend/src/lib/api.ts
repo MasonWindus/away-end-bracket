@@ -11,6 +11,7 @@ import type {
   PublicBracket,
   GroupCode,
   MatchResult,
+  LiveGroupStandings,
 } from "../types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -120,6 +121,11 @@ export async function getLeaderboard(
 
 export async function getUserBracket(userId: string): Promise<PublicBracket> {
   return apiFetch<PublicBracket>(`/brackets/${userId}`);
+}
+
+export async function getStandings(): Promise<LiveGroupStandings[]> {
+  const data = await apiFetch<{ groups: LiveGroupStandings[] }>("/standings");
+  return data.groups;
 }
 
 // ---- Admin ----
