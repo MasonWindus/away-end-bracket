@@ -131,25 +131,6 @@ export default function StandingsPage() {
                     </tbody>
                   </table>
                 </div>
-                {matches.length > 0 && (
-                  <div className="border-t border-away-moss/50 px-3 py-2 space-y-1">
-                    {matches.map((m) => (
-                      <div key={m.match_id} className="flex items-center justify-between text-xs text-away-cream/60">
-                        <span className="flex items-center gap-1.5">
-                          <TeamFlag code={m.home_team} />
-                          {TEAM_NAMES[m.home_team] ?? m.home_team}
-                        </span>
-                        <span className="text-away-cream font-bold tabular-nums">
-                          {m.home_goals} – {m.away_goals}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          {TEAM_NAMES[m.away_team] ?? m.away_team}
-                          <TeamFlag code={m.away_team} />
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             );
           })}
