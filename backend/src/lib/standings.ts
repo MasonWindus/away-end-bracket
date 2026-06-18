@@ -1,7 +1,7 @@
 import { GroupCode, GroupResult, MatchResult } from "../types";
 import { GROUPS } from "../data/teams";
 
-interface TeamStats {
+export interface TeamStats {
   team: string;
   played: number;
   won: number;
@@ -13,9 +13,7 @@ interface TeamStats {
   points: number;
 }
 
-export function computeGroupStandings(group: GroupCode, matches: MatchResult[]): GroupResult | null {
-  if (matches.length === 0) return null;
-
+function buildGroupStats(group: GroupCode, matches: MatchResult[]): TeamStats[] {
   const groupTeams = GROUPS[group].map((t) => t.code);
   const stats: Record<string, TeamStats> = {};
   for (const team of groupTeams) {
@@ -52,15 +50,26 @@ export function computeGroupStandings(group: GroupCode, matches: MatchResult[]):
     }
   }
 
-  // If any team hasn't played yet, standings are indeterminate — skip provisional scoring
-  if (Object.values(stats).some((s) => s.played === 0)) return null;
-
-  const sorted = Object.values(stats).sort((a, b) => {
+  return Object.values(stats).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.gd !== a.gd) return b.gd - a.gd;
     if (b.gf !== a.gf) return b.gf - a.gf;
     return a.team.localeCompare(b.team);
   });
+}
+
+/** Live table for a group, including teams that haven't played yet. */
+export function computeLiveGroupTable(group: GroupCode, matches: MatchResult[]): TeamStats[] {
+  return buildGroupStats(group, matches);
+}
+
+export function computeGroupStandings(group: GroupCode, matches: MatchResult[]): GroupResult | null {
+  if (matches.length === 0) return null;
+
+  const sorted = buildGroupStats(group, matches);
+
+  // If any team hasn't played yet, standings are indeterminate — skip provisional scoring
+  if (sorted.some((s) => s.played === 0)) return null;
 
   return {
     group_code: group,

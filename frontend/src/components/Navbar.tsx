@@ -49,6 +49,12 @@ export default function Navbar() {
             >
               Leaderboard
             </Link>
+            <Link
+              to="/standings"
+              className="text-away-cream/80 hover:text-away-gold transition-colors text-sm font-semibold tracking-wide uppercase"
+            >
+              Standings
+            </Link>
             {user ? (
               <>
                 <Link
@@ -117,6 +123,13 @@ export default function Navbar() {
               onClick={() => setMenuOpen(false)}
             >
               Leaderboard
+            </Link>
+            <Link
+              to="/standings"
+              className="block text-away-cream/80 hover:text-away-gold py-2 text-sm font-semibold uppercase tracking-wide transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              Standings
             </Link>
             {user ? (
               <>

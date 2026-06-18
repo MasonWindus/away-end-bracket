@@ -34,7 +34,11 @@ export const handler = async (
       return await handlePicks(apiEvent);
     }
 
-    if (path.startsWith("/api/leaderboard") || path.startsWith("/api/brackets")) {
+    if (
+      path.startsWith("/api/leaderboard") ||
+      path.startsWith("/api/brackets") ||
+      path.startsWith("/api/standings")
+    ) {
       return await handleLeaderboard(apiEvent);
     }
 
