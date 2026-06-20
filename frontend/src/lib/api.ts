@@ -111,11 +111,13 @@ export async function getKnockoutDeadline(): Promise<{ deadline: string | null; 
 export async function getLeaderboard(
   page = 1,
   search = "",
-  userId = ""
+  userId = "",
+  excludeLate = false
 ): Promise<{ entries: LeaderboardEntry[]; pinned: LeaderboardEntry[]; total: number; totalEntrants: number; lateEntryCount: number; page: number; totalPages: number; currentUserEntry: LeaderboardEntry | null }> {
   const params = new URLSearchParams({ page: String(page) });
   if (search) params.set("search", search);
   if (userId) params.set("userId", userId);
+  if (excludeLate) params.set("excludeLate", "true");
   return apiFetch(`/leaderboard?${params}`);
 }
 

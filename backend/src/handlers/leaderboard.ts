@@ -59,11 +59,26 @@ function makeDiscriminator(userId: string): string {
   return h.toString(16).toUpperCase().padStart(4, "0");
 }
 
+function assignRanks<T extends { total_score: number }>(
+  sortedEntries: T[]
+): (T & { rank: number })[] {
+  const ranked: (T & { rank: number })[] = [];
+  let rank = 1;
+  for (let i = 0; i < sortedEntries.length; i++) {
+    if (i > 0 && sortedEntries[i].total_score < sortedEntries[i - 1].total_score) {
+      rank = i + 1;
+    }
+    ranked.push({ rank, ...sortedEntries[i] });
+  }
+  return ranked;
+}
+
 async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const qs = event.queryStringParameters ?? {};
   const page = Math.max(1, parseInt(qs.page ?? "1", 10) || 1);
   const search = (qs.search ?? "").trim().toLowerCase();
   const currentUserId = (qs.userId ?? "").trim();
+  const excludeLate = (qs.excludeLate ?? "").trim().toLowerCase() === "true";
 
   // Query all users via GSI1 (paginated internally)
   const userItems = await queryItems({
@@ -101,15 +116,14 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return a.display_name.localeCompare(b.display_name);
   });
 
-  // Assign ranks (ties get same rank) across the full list
-  const ranked: (typeof combined[0] & { rank: number })[] = [];
-  let rank = 1;
-  for (let i = 0; i < combined.length; i++) {
-    if (i > 0 && combined[i].total_score < combined[i - 1].total_score) {
-      rank = i + 1;
-    }
-    ranked.push({ rank, ...combined[i] });
-  }
+  // Counts always reflect the full population, regardless of the filter applied below.
+  const totalEntrants = combined.length;
+  const lateEntryCount = combined.filter((e) => e.is_late_entry).length;
+
+  // When excluding late entries, drop them before ranking so standings are
+  // recalculated from scratch for the filtered field (no gaps left behind).
+  const rankingSource = excludeLate ? combined.filter((e) => !e.is_late_entry) : combined;
+  const ranked = assignRanks(rankingSource);
 
   // Attach a deterministic 4-char discriminator to non-pinned entries whose
   // display_name collides with at least one other user (case-insensitive).
@@ -139,8 +153,6 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     ? withDiscriminators.filter((e) => e.display_name.toLowerCase().includes(search))
     : withDiscriminators;
 
-  const totalEntrants = withDiscriminators.length;
-  const lateEntryCount = withDiscriminators.filter((e) => e.is_late_entry).length;
   const total = searchFiltered.length;
   const totalPages = Math.max(1, Math.ceil(total / LEADERBOARD_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
