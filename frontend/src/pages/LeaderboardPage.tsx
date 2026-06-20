@@ -20,15 +20,16 @@ export default function LeaderboardPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [excludeLate, setExcludeLate] = useState(false);
 
   // Debounce search so we don't fire on every keystroke
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function load(p: number, s: string) {
+  async function load(p: number, s: string, hideLate: boolean) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getLeaderboard(p, s, user?.id ?? "");
+      const data = await getLeaderboard(p, s, user?.id ?? "", hideLate);
       setEntries(data.entries);
       setPinned(data.pinned);
       setCurrentUserEntry(data.currentUserEntry ?? null);
@@ -45,7 +46,7 @@ export default function LeaderboardPage() {
   }
 
   useEffect(() => {
-    load(1, "");
+    load(1, "", excludeLate);
     setSearch("");
     setPage(1);
   }, [user?.id]);
@@ -54,12 +55,18 @@ export default function LeaderboardPage() {
     setSearch(value);
     setPage(1);
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
-    searchDebounce.current = setTimeout(() => load(1, value), 300);
+    searchDebounce.current = setTimeout(() => load(1, value, excludeLate), 300);
+  }
+
+  function handleExcludeLateChange(value: boolean) {
+    setExcludeLate(value);
+    setPage(1);
+    load(1, search, value);
   }
 
   function goToPage(p: number) {
     setPage(p);
-    load(p, search);
+    load(p, search, excludeLate);
   }
 
   const safePage = page;
@@ -131,8 +138,17 @@ export default function LeaderboardPage() {
             className="w-full bg-away-green border border-away-moss rounded-lg pl-9 pr-4 py-2.5 text-away-cream placeholder-away-cream/30 focus:outline-none focus:border-away-gold text-sm"
           />
         </div>
+        <label className="flex items-center gap-2 bg-away-green border border-away-moss rounded-lg px-4 py-2.5 text-sm font-medium text-away-cream/80 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={excludeLate}
+            onChange={(e) => handleExcludeLateChange(e.target.checked)}
+            className="w-4 h-4 rounded accent-away-gold cursor-pointer"
+          />
+          Hide late entries
+        </label>
         <button
-          onClick={() => load(page, search)}
+          onClick={() => load(page, search, excludeLate)}
           disabled={loading}
           className="flex items-center gap-2 bg-away-green hover:bg-away-moss text-away-cream/80 border border-away-moss px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
         >
@@ -394,8 +410,11 @@ export default function LeaderboardPage() {
               Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, total)} of{" "}
               {total} contestant{total !== 1 ? "s" : ""}
               {search ? ` matching "${search}"` : ""}
-              {!search && lateEntryCount > 0 && (
+              {!search && !excludeLate && lateEntryCount > 0 && (
                 <span className="text-away-cream/30"> · {totalEntrants - lateEntryCount} standard, {lateEntryCount} late</span>
+              )}
+              {excludeLate && lateEntryCount > 0 && (
+                <span className="text-away-cream/30"> · {lateEntryCount} late entr{lateEntryCount !== 1 ? "ies" : "y"} hidden</span>
               )}
             </p>
 
