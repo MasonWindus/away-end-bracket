@@ -133,6 +133,11 @@ export async function handleAdmin(
       return await getBugReports();
     }
 
+    // POST /api/admin/bug-reports/backfill-display-names
+    if (method === "POST" && path === "/api/admin/bug-reports/backfill-display-names") {
+      return await backfillBugReportDisplayNames();
+    }
+
     // PUT /api/admin/bug-reports/:id/status
     const bugReportStatusMatch = path.match(/^\/api\/admin\/bug-reports\/([^/]+)\/status$/);
     if (method === "PUT" && bugReportStatusMatch) {
@@ -744,6 +749,34 @@ async function getBugReports(): Promise<APIGatewayProxyResult> {
   }));
 
   return response(200, { reports });
+}
+
+async function backfillBugReportDisplayNames(): Promise<APIGatewayProxyResult> {
+  const items = await queryItems({
+    IndexName: "GSI1",
+    KeyConditionExpression: "GSI1PK = :pk",
+    ExpressionAttributeValues: { ":pk": "BUG_REPORTS" },
+  }) as unknown as BugReportItem[];
+
+  const toUpdate = items.filter((item) => item.user_id && !item.display_name);
+
+  let updated = 0;
+  for (const item of toUpdate) {
+    const userItem = await getItem({
+      PK: `USER#${item.user_id}`,
+      SK: `USER#${item.user_id}`,
+    }) as UserItem | undefined;
+    if (!userItem?.display_name) continue;
+
+    await updateItem({
+      Key: { PK: item.PK, SK: item.SK },
+      UpdateExpression: "SET display_name = :name",
+      ExpressionAttributeValues: { ":name": userItem.display_name },
+    });
+    updated++;
+  }
+
+  return response(200, { updated, checked: toUpdate.length });
 }
 
 async function updateBugReportStatus(

@@ -19,6 +19,7 @@ import {
   backfillLateEntries,
   getBugReports,
   updateBugReportStatus,
+  backfillBugReportDisplayNames,
   getKnockoutDeadlineConfig,
   setKnockoutDeadlineConfig,
   type BugReport,
@@ -665,6 +666,8 @@ export default function Admin() {
   const [backfillResult, setBackfillResult] = useState<string>("");
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [bugsLoading, setBugsLoading] = useState(false);
+  const [bugBackfillLoading, setBugBackfillLoading] = useState(false);
+  const [bugBackfillResult, setBugBackfillResult] = useState<string>("");
 
   useEffect(() => {
     if (!loading && (!user || !user.is_admin)) {
@@ -764,6 +767,20 @@ export default function Admin() {
       setBackfillResult(err instanceof Error ? err.message : "Error running backfill");
     } finally {
       setBackfillLoading(false);
+    }
+  }
+
+  async function handleBackfillBugReportDisplayNames() {
+    setBugBackfillLoading(true);
+    setBugBackfillResult("");
+    try {
+      const result = await backfillBugReportDisplayNames();
+      setBugBackfillResult(`✓ Updated ${result.updated} of ${result.checked} report${result.checked !== 1 ? "s" : ""}.`);
+      await loadBugReports();
+    } catch (err: unknown) {
+      setBugBackfillResult(err instanceof Error ? err.message : "Error running backfill");
+    } finally {
+      setBugBackfillLoading(false);
     }
   }
 
@@ -891,9 +908,23 @@ export default function Admin() {
         {tab === "bugs" && (
           <>
             <h2 className="text-xl font-bold text-white mb-1">Bug Reports</h2>
-            <p className="text-gray-400 text-sm mb-5">
+            <p className="text-gray-400 text-sm mb-3">
               {bugReports.length} total — {openBugCount} open
             </p>
+            <div className="mb-5">
+              <button
+                onClick={handleBackfillBugReportDisplayNames}
+                disabled={bugBackfillLoading}
+                className="px-4 py-2 bg-orange-700 hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg font-medium text-sm transition-colors"
+              >
+                {bugBackfillLoading ? "Running…" : "Backfill Missing Names"}
+              </button>
+              {bugBackfillResult && (
+                <p className={`mt-2 text-sm ${bugBackfillResult.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                  {bugBackfillResult}
+                </p>
+              )}
+            </div>
             {bugsLoading ? (
               <div className="text-emerald-400 animate-pulse py-8 text-center">Loading...</div>
             ) : bugReports.length === 0 ? (
