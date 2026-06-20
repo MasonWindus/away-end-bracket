@@ -1,8 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { v4 as uuidv4 } from "uuid";
-import { putItem } from "../lib/db";
+import { getItem, putItem } from "../lib/db";
 import { AuthError, errorResponse, requireAuth, response } from "../lib/middleware";
-import { BugReportItem } from "../types";
+import { BugReportItem, UserItem } from "../types";
 
 export async function handleBugReport(
   event: APIGatewayProxyEvent
@@ -32,8 +32,11 @@ export async function handleBugReport(
   try {
     const auth = requireAuth(event);
     userId = auth.userId;
-    // Fetch display name from the auth context email isn't enough; skip for now
-    // userId is sufficient for admin to look up if needed
+    const userItem = (await getItem({
+      PK: `USER#${userId}`,
+      SK: `USER#${userId}`,
+    })) as UserItem | undefined;
+    displayName = userItem?.display_name;
   } catch (err) {
     if (!(err instanceof AuthError)) throw err;
   }

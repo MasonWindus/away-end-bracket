@@ -282,6 +282,10 @@ export async function getBugReports(): Promise<BugReport[]> {
   return data.reports;
 }
 
+export async function backfillBugReportDisplayNames(): Promise<{ updated: number; checked: number }> {
+  return apiFetch("/admin/bug-reports/backfill-display-names", { method: "POST" });
+}
+
 export async function getKnockoutDeadlineConfig(): Promise<{ deadline: string | null }> {
   return apiFetch("/admin/config/knockout-deadline");
 }
