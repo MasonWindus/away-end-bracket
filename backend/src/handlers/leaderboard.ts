@@ -60,7 +60,7 @@ function assignRanks<T extends { total_score: number }>(
     if (i > 0 && sortedEntries[i].total_score < sortedEntries[i - 1].total_score) {
       rank = i + 1;
     }
-    ranked.push({ rank, ...sortedEntries[i] });
+    ranked.push({ ...sortedEntries[i], rank });
   }
   return ranked;
 }
