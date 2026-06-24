@@ -593,14 +593,22 @@ export async function recalculateScoresBackground(): Promise<void> {
       return { rank, ...e, discriminator };
     });
 
-    await putItem({
-      PK: "LEADERBOARD#CACHE",
-      SK: "CACHE",
-      entries: rankedEntries,
-      totalEntrants,
-      lateEntryCount,
-      cached_at: now,
-    });
+    // Write cache in chunks of 400 entries to stay under DynamoDB's 400KB item limit.
+    // Readers reassemble via batchGetItems on SK CACHE#0, CACHE#1, etc.
+    const CACHE_CHUNK_SIZE = 400;
+    const cacheChunks: Record<string, unknown>[] = [];
+    for (let i = 0; i < rankedEntries.length; i += CACHE_CHUNK_SIZE) {
+      cacheChunks.push({
+        PK: "LEADERBOARD#CACHE",
+        SK: `CACHE#${Math.floor(i / CACHE_CHUNK_SIZE)}`,
+        entries: rankedEntries.slice(i, i + CACHE_CHUNK_SIZE),
+        totalEntrants,
+        lateEntryCount,
+        chunkCount: Math.ceil(rankedEntries.length / CACHE_CHUNK_SIZE),
+        cached_at: now,
+      });
+    }
+    await batchWriteItems(cacheChunks);
     // ── End leaderboard cache ──────────────────────────────────────────────
 
     await putItem({

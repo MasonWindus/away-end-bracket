@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { getItem, putItem, queryItems, scanItems } from "../lib/db";
+import { batchGetItems, getItem, putItem, queryItems, scanItems } from "../lib/db";
 import { AuthError, errorResponse, response } from "../lib/middleware";
 import { computeLiveGroupTable } from "../lib/standings";
 import {
@@ -76,6 +76,7 @@ interface LeaderboardCacheItem {
   entries: (LeaderboardEntry & { is_pinned: boolean; is_late_entry: boolean })[];
   totalEntrants: number;
   lateEntryCount: number;
+  chunkCount: number;
   cached_at: string;
 }
 
@@ -86,11 +87,12 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const currentUserId = (qs.userId ?? "").trim();
   const excludeLate = (qs.excludeLate ?? "").trim().toLowerCase() === "true";
 
-  // One read instead of 1,400+
-  const cache = await getItem({ PK: "LEADERBOARD#CACHE", SK: "CACHE" }) as unknown as LeaderboardCacheItem | undefined;
+  // Read chunk 0 first to discover total chunk count, then fetch remaining chunks.
+  // Typically 4 reads (batchGetItems) instead of the old 1,400+.
+  const chunk0 = await getItem({ PK: "LEADERBOARD#CACHE", SK: "CACHE#0" }) as unknown as LeaderboardCacheItem | undefined;
 
   // Cold-start fallback: if cache doesn't exist yet, return empty but valid shape
-  if (!cache) {
+  if (!chunk0) {
     return response(200, {
       entries: [],
       pinned: [],
@@ -103,7 +105,19 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     });
   }
 
-  const allEntries = cache.entries;
+  let allEntries = [...chunk0.entries];
+  if (chunk0.chunkCount > 1) {
+    const remainingKeys = Array.from({ length: chunk0.chunkCount - 1 }, (_, i) => ({
+      PK: "LEADERBOARD#CACHE",
+      SK: `CACHE#${i + 1}`,
+    }));
+    const remainingChunks = await batchGetItems(remainingKeys) as unknown as LeaderboardCacheItem[];
+    // Sort by SK to preserve rank order across chunks
+    remainingChunks.sort((a, b) => a.SK.localeCompare(b.SK));
+    for (const chunk of remainingChunks) {
+      allEntries = allEntries.concat(chunk.entries);
+    }
+  }
 
   // Pinned entries always returned in full (for the hosts spotlight)
   const pinned = allEntries.filter((e) => e.is_pinned);
@@ -134,8 +148,8 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     entries,
     pinned,
     total,
-    totalEntrants: cache.totalEntrants,
-    lateEntryCount: cache.lateEntryCount,
+    totalEntrants: chunk0.totalEntrants,
+    lateEntryCount: chunk0.lateEntryCount,
     page: safePage,
     totalPages,
     currentUserEntry,
