@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { batchGetItems, getItem, queryItems, scanItems } from "../lib/db";
+import { getItem, putItem, queryItems, scanItems } from "../lib/db";
 import { AuthError, errorResponse, response } from "../lib/middleware";
 import { computeLiveGroupTable } from "../lib/standings";
 import {
@@ -51,14 +51,6 @@ export async function handleLeaderboard(
 
 const LEADERBOARD_PAGE_SIZE = 50;
 
-function makeDiscriminator(userId: string): string {
-  let h = 5381;
-  for (let i = 0; i < userId.length; i++) {
-    h = ((h << 5) + h + userId.charCodeAt(i)) & 0xffff;
-  }
-  return h.toString(16).toUpperCase().padStart(4, "0");
-}
-
 function assignRanks<T extends { total_score: number }>(
   sortedEntries: T[]
 ): (T & { rank: number })[] {
@@ -73,6 +65,20 @@ function assignRanks<T extends { total_score: number }>(
   return ranked;
 }
 
+// ─── Leaderboard cache ────────────────────────────────────────────────────────
+// The full ranked+discriminated list is stored as a single DynamoDB item by
+// recalculateScoresBackground() (admin.ts). Each GET just reads that one item
+// and slices/filters in memory — no GSI fan-out, no batch-score fetches.
+
+interface LeaderboardCacheItem {
+  PK: string;
+  SK: string;
+  entries: (LeaderboardEntry & { is_pinned: boolean; is_late_entry: boolean })[];
+  totalEntrants: number;
+  lateEntryCount: number;
+  cached_at: string;
+}
+
 async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const qs = event.queryStringParameters ?? {};
   const page = Math.max(1, parseInt(qs.page ?? "1", 10) || 1);
@@ -80,78 +86,41 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const currentUserId = (qs.userId ?? "").trim();
   const excludeLate = (qs.excludeLate ?? "").trim().toLowerCase() === "true";
 
-  // Query all users via GSI1 (paginated internally)
-  const userItems = await queryItems({
-    IndexName: "GSI1",
-    KeyConditionExpression: "GSI1PK = :pk",
-    ExpressionAttributeValues: {
-      ":pk": "USERS",
-    },
-  }) as unknown as UserItem[];
+  // One read instead of 1,400+
+  const cache = await getItem({ PK: "LEADERBOARD#CACHE", SK: "CACHE" }) as unknown as LeaderboardCacheItem | undefined;
 
-  // Batch-fetch all scores in parallel (100 keys per request instead of N individual calls)
-  const scoreKeys = userItems.map((u) => ({ PK: `USER#${u.id}`, SK: "SCORES" }));
-  const scoreItems = await batchGetItems(scoreKeys) as unknown as ScoresItem[];
-  const scoreMap = new Map<string, ScoresItem>();
-  for (const s of scoreItems) {
-    scoreMap.set(s.PK, s);
+  // Cold-start fallback: if cache doesn't exist yet, return empty but valid shape
+  if (!cache) {
+    return response(200, {
+      entries: [],
+      pinned: [],
+      total: 0,
+      totalEntrants: 0,
+      lateEntryCount: 0,
+      page: 1,
+      totalPages: 1,
+      currentUserEntry: null,
+    });
   }
 
-  // Build full sorted+ranked list
-  const combined = userItems.map((user) => {
-    const s = scoreMap.get(`USER#${user.id}`);
-    return {
-      userId: user.id,
-      display_name: user.display_name,
-      group_stage_score: s?.group_stage_score ?? 0,
-      knockout_score: s?.knockout_score ?? 0,
-      total_score: s?.total_score ?? 0,
-      is_pinned: user.is_pinned ?? false,
-      is_late_entry: user.is_late_entry ?? false,
-    };
-  });
-
-  combined.sort((a, b) => {
-    if (b.total_score !== a.total_score) return b.total_score - a.total_score;
-    return a.display_name.localeCompare(b.display_name);
-  });
-
-  // Counts always reflect the full population, regardless of the filter applied below.
-  const totalEntrants = combined.length;
-  const lateEntryCount = combined.filter((e) => e.is_late_entry).length;
-
-  // When excluding late entries, drop them before ranking so standings are
-  // recalculated from scratch for the filtered field (no gaps left behind).
-  const rankingSource = excludeLate ? combined.filter((e) => !e.is_late_entry) : combined;
-  const ranked = assignRanks(rankingSource);
-
-  // Attach a deterministic 4-char discriminator to non-pinned entries whose
-  // display_name collides with at least one other user (case-insensitive).
-  const nameCounts = new Map<string, number>();
-  for (const e of ranked) {
-    const key = e.display_name.toLowerCase();
-    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
-  }
-  const withDiscriminators = ranked.map((e) => ({
-    ...e,
-    discriminator:
-      !e.is_pinned && (nameCounts.get(e.display_name.toLowerCase()) ?? 0) > 1
-        ? makeDiscriminator(e.userId)
-        : undefined,
-  }));
+  const allEntries = cache.entries;
 
   // Pinned entries always returned in full (for the hosts spotlight)
-  const pinned = withDiscriminators.filter((e) => e.is_pinned);
+  const pinned = allEntries.filter((e) => e.is_pinned);
 
   // Current user's entry always returned regardless of page/search
   const currentUserEntry = currentUserId
-    ? (withDiscriminators.find((e) => e.userId === currentUserId) ?? null)
+    ? (allEntries.find((e) => e.userId === currentUserId) ?? null)
     : null;
+
+  // When excluding late entries, re-rank from scratch so there are no rank gaps
+  const rankingSource = excludeLate ? allEntries.filter((e) => !e.is_late_entry) : allEntries;
+  const reranked = excludeLate ? assignRanks(rankingSource) : rankingSource;
 
   // Apply search filter then paginate
   const searchFiltered = search
-    ? withDiscriminators.filter((e) => e.display_name.toLowerCase().includes(search))
-    : withDiscriminators;
+    ? reranked.filter((e) => e.display_name.toLowerCase().includes(search))
+    : reranked;
 
   const total = searchFiltered.length;
   const totalPages = Math.max(1, Math.ceil(total / LEADERBOARD_PAGE_SIZE));
@@ -161,10 +130,30 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     safePage * LEADERBOARD_PAGE_SIZE
   );
 
-  return response(200, { entries, pinned, total, totalEntrants, lateEntryCount, page: safePage, totalPages, currentUserEntry });
+  return response(200, {
+    entries,
+    pinned,
+    total,
+    totalEntrants: cache.totalEntrants,
+    lateEntryCount: cache.lateEntryCount,
+    page: safePage,
+    totalPages,
+    currentUserEntry,
+  });
 }
 
 async function getStandings(): Promise<APIGatewayProxyResult> {
+  // One read instead of a full table scan.
+  // The cache is written by postMatch() in admin.ts whenever a match result is saved.
+  const cache = await getItem({ PK: "STANDINGS#CACHE", SK: "CACHE" }) as
+    | { groups: unknown; cached_at: string }
+    | undefined;
+
+  if (cache) {
+    return response(200, { groups: cache.groups });
+  }
+
+  // Fallback: recompute from scratch on the first call before any cache exists
   const items = (await scanItems({
     FilterExpression: "begins_with(PK, :prefix)",
     ExpressionAttributeValues: { ":prefix": "MATCH#GROUP#" },
@@ -192,6 +181,14 @@ async function getStandings(): Promise<APIGatewayProxyResult> {
       table: computeLiveGroupTable(code, matches),
       matches,
     };
+  });
+
+  // Warm the cache so next call is fast
+  await putItem({
+    PK: "STANDINGS#CACHE",
+    SK: "CACHE",
+    groups,
+    cached_at: new Date().toISOString(),
   });
 
   return response(200, { groups });

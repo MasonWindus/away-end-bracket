@@ -537,10 +537,73 @@ export async function recalculateScoresBackground(): Promise<void> {
       );
     }
 
+    // ── Build leaderboard cache ────────────────────────────────────────────
+    // Fetch all users once more (we have scores now) and write a single cache
+    // item so GET /api/leaderboard only costs 1 read instead of 1,400+.
+    const allUsersFinal = (await scanItems({
+      FilterExpression: "begins_with(PK, :prefix) AND SK = PK",
+      ExpressionAttributeValues: { ":prefix": "USER#" },
+    })) as unknown as UserItem[];
+
+    const scoreMapFinal = new Map<string, ScoresItem>();
+    for (const s of scoresItems as unknown as ScoresItem[]) {
+      scoreMapFinal.set(s.PK, s);
+    }
+
+    const combined = allUsersFinal.map((user) => {
+      const s = scoreMapFinal.get(`USER#${user.id}`);
+      return {
+        userId: user.id,
+        display_name: user.display_name,
+        group_stage_score: s?.group_stage_score ?? 0,
+        knockout_score: s?.knockout_score ?? 0,
+        total_score: s?.total_score ?? 0,
+        is_pinned: user.is_pinned ?? false,
+        is_late_entry: user.is_late_entry ?? false,
+      };
+    });
+
+    combined.sort((a, b) => {
+      if (b.total_score !== a.total_score) return b.total_score - a.total_score;
+      return a.display_name.localeCompare(b.display_name);
+    });
+
+    const totalEntrants = combined.length;
+    const lateEntryCount = combined.filter((e) => e.is_late_entry).length;
+
+    // Rank + attach discriminators
+    let rank = 1;
+    const nameCounts = new Map<string, number>();
+    for (const e of combined) {
+      const key = e.display_name.toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+    const rankedEntries = combined.map((e, i) => {
+      if (i > 0 && combined[i].total_score < combined[i - 1].total_score) rank = i + 1;
+      const discriminator =
+        !e.is_pinned && (nameCounts.get(e.display_name.toLowerCase()) ?? 0) > 1
+          ? (() => {
+              let h = 5381;
+              for (let c = 0; c < e.userId.length; c++) {
+                h = ((h << 5) + h + e.userId.charCodeAt(c)) & 0xffff;
+              }
+              return h.toString(16).toUpperCase().padStart(4, "0");
+            })()
+          : undefined;
+      return { rank, ...e, discriminator };
+    });
+
     await putItem({
-      PK: "RECALC#STATUS",
-      SK: "STATUS",
-      status: "complete",
+      PK: "LEADERBOARD#CACHE",
+      SK: "CACHE",
+      entries: rankedEntries,
+      totalEntrants,
+      lateEntryCount,
+      cached_at: now,
+    });
+    // ── End leaderboard cache ──────────────────────────────────────────────
+
+    await putItem({
       processed: scoresItems.length,
       completed_at: new Date().toISOString(),
     });
@@ -634,6 +697,10 @@ async function postMatch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyRe
 
   await putItem(item as unknown as Record<string, unknown>);
 
+  // Invalidate the standings cache. getStandings() will recompute from scratch
+  // on the next request and re-warm the cache automatically.
+  await deleteItem({ PK: "STANDINGS#CACHE", SK: "CACHE" });
+
   return response(200, {
     match: { match_id, group_code, home_team, away_team, home_goals, away_goals, entered_at: now },
   });
@@ -654,6 +721,8 @@ async function deleteMatch(matchId: string): Promise<APIGatewayProxyResult> {
     PK: `MATCH#GROUP#${group_code}`,
     SK: `MATCH#${matchId}`,
   });
+
+  await deleteItem({ PK: "STANDINGS#CACHE", SK: "CACHE" });
 
   return response(200, { message: "Match result deleted" });
 }
