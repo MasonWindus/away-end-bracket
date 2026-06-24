@@ -612,6 +612,9 @@ export async function recalculateScoresBackground(): Promise<void> {
     // ── End leaderboard cache ──────────────────────────────────────────────
 
     await putItem({
+      PK: "RECALC#STATUS",
+      SK: "STATUS",
+      status: "complete",
       processed: scoresItems.length,
       completed_at: new Date().toISOString(),
     });
