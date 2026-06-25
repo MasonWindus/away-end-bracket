@@ -20,7 +20,7 @@ export default function LeaderboardPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [excludeLate, setExcludeLate] = useState(false);
+  const [excludeLate, setExcludeLate] = useState(true);
 
   // Debounce search so we don't fire on every keystroke
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,11 +141,11 @@ export default function LeaderboardPage() {
         <label className="flex items-center gap-2 bg-away-green border border-away-moss rounded-lg px-4 py-2.5 text-sm font-medium text-away-cream/80 cursor-pointer select-none">
           <input
             type="checkbox"
-            checked={excludeLate}
-            onChange={(e) => handleExcludeLateChange(e.target.checked)}
+            checked={!excludeLate}
+            onChange={(e) => handleExcludeLateChange(!e.target.checked)}
             className="w-4 h-4 rounded accent-away-gold cursor-pointer"
           />
-          Hide late entries
+          Show late entries
         </label>
         <button
           onClick={() => load(page, search, excludeLate)}
