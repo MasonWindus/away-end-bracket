@@ -119,12 +119,12 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
   }
 
-  // Pinned entries always returned in full (for the hosts spotlight)
-  const pinned = allEntries.filter((e) => e.is_pinned);
-
   // When excluding late entries, re-rank from scratch so there are no rank gaps
   const rankingSource = excludeLate ? allEntries.filter((e) => !e.is_late_entry) : allEntries;
   const reranked = excludeLate ? assignRanks(rankingSource) : rankingSource;
+
+  // Pinned entries pulled from reranked so their rank always reflects the active filter
+  const pinned = reranked.filter((e) => e.is_pinned);
 
   // Current user's entry pulled from reranked so the rank reflects the active filter
   const currentUserEntry = currentUserId
