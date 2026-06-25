@@ -119,13 +119,17 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
   }
 
-  // When excluding late entries, re-rank from scratch so there are no rank gaps
-  const rankingSource = excludeLate ? allEntries.filter((e) => !e.is_late_entry) : allEntries;
+  // When excluding late entries, re-rank from scratch so there are no rank gaps.
+  // Sort explicitly before assignRanks — don't rely on cache chunk assembly order.
+  const rankingSource = excludeLate
+    ? allEntries
+        .filter((e) => !e.is_late_entry)
+        .sort((a, b) => b.total_score - a.total_score)
+    : allEntries;
   const reranked = excludeLate ? assignRanks(rankingSource) : rankingSource;
 
-  // Pinned entries always ranked without late entries, regardless of the toggle
-  const nonLateRanked = excludeLate ? reranked : assignRanks(allEntries.filter((e) => !e.is_late_entry));
-  const pinned = nonLateRanked.filter((e) => e.is_pinned);
+  // Pinned entries track the active filter (same source as the main list)
+  const pinned = reranked.filter((e) => e.is_pinned);
 
   // Current user's entry pulled from reranked so the rank reflects the active filter
   const currentUserEntry = currentUserId
