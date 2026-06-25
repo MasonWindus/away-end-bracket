@@ -119,8 +119,13 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
   }
 
-  // When excluding late entries, re-rank from scratch so there are no rank gaps
-  const rankingSource = excludeLate ? allEntries.filter((e) => !e.is_late_entry) : allEntries;
+  // When excluding late entries, re-rank from scratch so there are no rank gaps.
+  // Sort explicitly before assignRanks — don't rely on cache chunk assembly order.
+  const rankingSource = excludeLate
+    ? allEntries
+        .filter((e) => !e.is_late_entry)
+        .sort((a, b) => b.total_score - a.total_score)
+    : allEntries;
   const reranked = excludeLate ? assignRanks(rankingSource) : rankingSource;
 
   // Pinned entries pulled from reranked so their rank always reflects the active filter
