@@ -123,8 +123,9 @@ async function getLeaderboard(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const rankingSource = excludeLate ? allEntries.filter((e) => !e.is_late_entry) : allEntries;
   const reranked = excludeLate ? assignRanks(rankingSource) : rankingSource;
 
-  // Pinned entries pulled from reranked so their rank always reflects the active filter
-  const pinned = reranked.filter((e) => e.is_pinned);
+  // Pinned entries always ranked without late entries, regardless of the toggle
+  const nonLateRanked = excludeLate ? reranked : assignRanks(allEntries.filter((e) => !e.is_late_entry));
+  const pinned = nonLateRanked.filter((e) => e.is_pinned);
 
   // Current user's entry pulled from reranked so the rank reflects the active filter
   const currentUserEntry = currentUserId
