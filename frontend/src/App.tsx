@@ -15,6 +15,7 @@ import About from "./pages/About";
 
 const BRACKET_FIX_NOTICE_KEY = "bracketFixNotice_v1";
 const LATE_ENTRY_NOTICE_KEY = "lateEntryNotice_v1";
+const KNOCKOUT_STALE_WARNING_KEY = "knockoutStaleWarning_v1";
 const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
 
 function ProtectedRoute({
@@ -107,6 +108,14 @@ export default function App() {
     setShowLateEntryPopup(false);
   }
 
+  const [showKnockoutWarning, setShowKnockoutWarning] = useState(
+    () => localStorage.getItem(KNOCKOUT_STALE_WARNING_KEY) !== "dismissed"
+  );
+  function dismissKnockoutWarning() {
+    localStorage.setItem(KNOCKOUT_STALE_WARNING_KEY, "dismissed");
+    setShowKnockoutWarning(false);
+  }
+
   return (
     <div className="min-h-screen bg-away-forest">
       {showLateEntryPopup && <LateEntryPopup onDismiss={dismissLateEntryPopup} />}
@@ -123,6 +132,27 @@ export default function App() {
           <button
             onClick={dismissBracketNotice}
             className="shrink-0 text-amber-400/60 hover:text-amber-200 transition-colors"
+            aria-label="Dismiss"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+      {showKnockoutWarning && (
+        <div className="bg-orange-900/30 border-b border-away-orange/50 px-4 py-2.5 flex items-center gap-3">
+          <svg className="w-4 h-4 text-away-orange shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="flex-1 text-orange-200 text-xs sm:text-sm">
+            <span className="font-semibold">Knockout picks lock tomorrow!</span> The bracket matchups have been updated — if you have existing knockout picks, please{" "}
+            <a href="/picks" className="underline hover:text-orange-100">review your bracket</a>{" "}
+            before they lock.
+          </p>
+          <button
+            onClick={dismissKnockoutWarning}
+            className="shrink-0 text-away-orange/60 hover:text-orange-200 transition-colors"
             aria-label="Dismiss"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
