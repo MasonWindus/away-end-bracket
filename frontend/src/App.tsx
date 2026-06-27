@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Routes, Route, Navigate, Link } from "react-router-dom";
+import { Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import Navbar from "./components/Navbar";
 import BugReportButton from "./components/BugReportButton";
@@ -46,6 +46,45 @@ function ProtectedRoute({
   return <>{children}</>;
 }
 
+function KnockoutWarningPopup({ onDismiss, onReview }: { onDismiss: () => void; onReview: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+      <div className="bg-away-green border-2 border-away-orange rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-away-orange/20 rounded-full flex items-center justify-center shrink-0">
+            <svg className="w-7 h-7 text-away-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-away-cream font-display tracking-wide">
+            Knockout Picks Lock Tomorrow!
+          </h2>
+        </div>
+        <p className="text-away-cream/90 text-sm leading-relaxed mb-3">
+          The knockout round matchups have been updated since you last made picks.
+        </p>
+        <p className="text-away-orange text-sm font-semibold mb-6">
+          Please review your bracket and make sure your picks still reflect the correct matchups before the deadline tomorrow.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onReview}
+            className="flex-1 py-3 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold rounded-xl transition-colors"
+          >
+            Review My Bracket
+          </button>
+          <button
+            onClick={onDismiss}
+            className="py-3 px-4 bg-away-moss hover:bg-away-green/80 text-away-cream/70 rounded-xl transition-colors text-sm border border-away-moss"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LateEntryPopup({ onDismiss }: { onDismiss: () => void }) {
   const { user } = useAuth();
   return (
@@ -90,6 +129,8 @@ function LateEntryPopup({ onDismiss }: { onDismiss: () => void }) {
 }
 
 export default function App() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const deadlinePassed = new Date() > PICKS_DEADLINE;
 
   const [showBracketNotice, setShowBracketNotice] = useState(
@@ -119,6 +160,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-away-forest">
       {showLateEntryPopup && <LateEntryPopup onDismiss={dismissLateEntryPopup} />}
+      {showKnockoutWarning && user && (
+        <KnockoutWarningPopup
+          onDismiss={dismissKnockoutWarning}
+          onReview={() => { dismissKnockoutWarning(); navigate("/picks"); }}
+        />
+      )}
       <Navbar />
       {showBracketNotice && (
         <div className="bg-amber-900/30 border-b border-amber-500/40 px-4 py-2.5 flex items-center gap-3">

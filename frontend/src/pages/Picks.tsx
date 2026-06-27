@@ -95,12 +95,8 @@ export default function Picks() {
   const [thirdsInvalidated, setThirdsInvalidated] = useState(false);
 
   const BRACKET_FIX_NOTICE_KEY = "bracketFixNotice_v1";
-  const KNOCKOUT_STALE_WARNING_KEY = "knockoutStaleWarning_v1";
   const [showBracketNotice, setShowBracketNotice] = useState(
     () => localStorage.getItem(BRACKET_FIX_NOTICE_KEY) !== "dismissed"
-  );
-  const [showKnockoutWarning, setShowKnockoutWarning] = useState(
-    () => localStorage.getItem(KNOCKOUT_STALE_WARNING_KEY) !== "dismissed"
   );
   // Snapshot whether the user already had picks when the page loaded — used to
   // gate the bracket-fix notice so it doesn't fire mid-interaction when a user
@@ -109,10 +105,6 @@ export default function Picks() {
   function dismissBracketNotice() {
     localStorage.setItem(BRACKET_FIX_NOTICE_KEY, "dismissed");
     setShowBracketNotice(false);
-  }
-  function dismissKnockoutWarning() {
-    localStorage.setItem(KNOCKOUT_STALE_WARNING_KEY, "dismissed");
-    setShowKnockoutWarning(false);
   }
 
   const load = useCallback(async () => {
@@ -323,44 +315,6 @@ export default function Picks() {
               </button>
               <button
                 onClick={dismissBracketNotice}
-                className="py-3 px-4 bg-away-moss hover:bg-away-green/80 text-away-cream/70 rounded-xl transition-colors text-sm border border-away-moss"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Knockout stale entries warning modal */}
-      {showKnockoutWarning && !loading && hadPicksOnLoad && !showBracketNotice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div className="bg-away-green border-2 border-away-orange rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-away-orange/20 rounded-full flex items-center justify-center shrink-0">
-                <svg className="w-7 h-7 text-away-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-away-cream font-display tracking-wide">
-                Knockout Picks Lock Tomorrow!
-              </h2>
-            </div>
-            <p className="text-away-cream/90 text-sm leading-relaxed mb-3">
-              The knockout round matchups have been updated since you last made picks.
-            </p>
-            <p className="text-away-orange text-sm font-semibold mb-6">
-              Please review your bracket and make sure your picks still reflect the correct matchups before the deadline tomorrow.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { dismissKnockoutWarning(); setStep(3); }}
-                className="flex-1 py-3 bg-away-orange hover:bg-away-orange-light text-away-cream font-bold rounded-xl transition-colors"
-              >
-                Review My Bracket
-              </button>
-              <button
-                onClick={dismissKnockoutWarning}
                 className="py-3 px-4 bg-away-moss hover:bg-away-green/80 text-away-cream/70 rounded-xl transition-colors text-sm border border-away-moss"
               >
                 Dismiss
