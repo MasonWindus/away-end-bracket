@@ -65,35 +65,35 @@ function getMatchesForRound(
   actual: KnockoutPicks,
   user: KnockoutPicks | null
 ): MatchData[] {
+  // Use set-based lookup so picks show correctly even when the user's group
+  // stage predictions differ from the actual results (and thus bracket slots differ).
+  const r16Set = new Set((user?.R16 ?? []).filter(Boolean));
+  const qfSet  = new Set((user?.QF  ?? []).filter(Boolean));
+  const sfSet  = new Set((user?.SF  ?? []).filter(Boolean));
+  const finSet = new Set((user?.Final ?? []).filter(Boolean));
+  const pick = (a: string, b: string, s: Set<string>) => s.has(a) ? a : s.has(b) ? b : "";
+
   switch (round) {
     case "R32":
-      return Array.from({ length: 16 }, (_, i) => ({
-        teamA: r32Field[i * 2] || "TBD",
-        teamB: r32Field[i * 2 + 1] || "TBD",
-        winner: actual.R16[i] || "",
-        userPick: user?.R16[i] || "",
-      }));
+      return Array.from({ length: 16 }, (_, i) => {
+        const a = r32Field[i * 2] || "TBD", b = r32Field[i * 2 + 1] || "TBD";
+        return { teamA: a, teamB: b, winner: actual.R16[i] || "", userPick: pick(a, b, r16Set) };
+      });
     case "R16":
-      return Array.from({ length: 8 }, (_, i) => ({
-        teamA: actual.R16[i * 2] || "",
-        teamB: actual.R16[i * 2 + 1] || "",
-        winner: actual.QF[i] || "",
-        userPick: user?.QF[i] || "",
-      }));
+      return Array.from({ length: 8 }, (_, i) => {
+        const a = actual.R16[i * 2] || "", b = actual.R16[i * 2 + 1] || "";
+        return { teamA: a, teamB: b, winner: actual.QF[i] || "", userPick: pick(a, b, qfSet) };
+      });
     case "QF":
-      return Array.from({ length: 4 }, (_, i) => ({
-        teamA: actual.QF[i * 2] || "",
-        teamB: actual.QF[i * 2 + 1] || "",
-        winner: actual.SF[i] || "",
-        userPick: user?.SF[i] || "",
-      }));
+      return Array.from({ length: 4 }, (_, i) => {
+        const a = actual.QF[i * 2] || "", b = actual.QF[i * 2 + 1] || "";
+        return { teamA: a, teamB: b, winner: actual.SF[i] || "", userPick: pick(a, b, sfSet) };
+      });
     case "SF":
-      return Array.from({ length: 2 }, (_, i) => ({
-        teamA: actual.SF[i * 2] || "",
-        teamB: actual.SF[i * 2 + 1] || "",
-        winner: actual.Final[i] || "",
-        userPick: user?.Final[i] || "",
-      }));
+      return Array.from({ length: 2 }, (_, i) => {
+        const a = actual.SF[i * 2] || "", b = actual.SF[i * 2 + 1] || "";
+        return { teamA: a, teamB: b, winner: actual.Final[i] || "", userPick: pick(a, b, finSet) };
+      });
     case "Final":
       return [{ teamA: actual.Final[0] || "", teamB: actual.Final[1] || "", winner: actual.Champion || "", userPick: user?.Champion || "" }];
   }
@@ -151,23 +151,22 @@ function TeamRow({
         )}
         {!isTBD && <TeamFlag code={team} />}
         <span className={`text-sm font-medium truncate ${
-          isTBD        ? "text-away-cream/25 italic" :
-          isWinner     ? "text-away-gold font-semibold" :
-          isLoser      ? "text-away-cream/35" :
-          "text-away-cream/85"
+          isTBD                              ? "text-away-cream/25 italic" :
+          isWinner                           ? "text-away-gold font-semibold" :
+          isLoser                            ? "text-away-cream/35" :
+          showPicks && userPicked            ? "text-away-cream font-semibold" :
+                                               "text-away-cream/85"
         }`}>
           {name}
         </span>
       </div>
-      {showPicks && userPicked && !isTBD && (
+      {showPicks && userPicked && !isTBD && (isWinner || isLoser) && (
         <span className={`shrink-0 ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded border ${
           isWinner
             ? "bg-emerald-900/40 text-emerald-400 border-emerald-600/50"
-            : isLoser
-            ? "bg-red-900/25 text-red-400/80 border-red-700/40"
-            : "bg-away-moss text-away-cream/40 border-away-moss"
+            : "bg-red-900/25 text-red-400/80 border-red-700/40"
         }`}>
-          {isWinner ? "✓" : isLoser ? "✗" : "?"}
+          {isWinner ? "✓" : "✗"}
         </span>
       )}
     </div>
