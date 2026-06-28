@@ -22,6 +22,7 @@ import {
   backfillBugReportDisplayNames,
   getKnockoutDeadlineConfig,
   setKnockoutDeadlineConfig,
+  getThirdsResult,
   type BugReport,
 } from "../lib/api";
 import { GROUPS, GROUP_CODES, TEAM_NAMES } from "../data/teams";
@@ -319,12 +320,37 @@ function MatchResultsSection() {
   );
 }
 
+// Slot number → which group winner it faces in R32
+const SLOT_LABELS: Record<string, string> = {
+  "1": "vs Group E winner",
+  "2": "vs Group I winner",
+  "3": "vs Group D winner",
+  "4": "vs Group G winner",
+  "5": "vs Group A winner",
+  "6": "vs Group L winner",
+  "7": "vs Group B winner",
+  "8": "vs Group K winner",
+};
+
 // ─── Thirds Result Section ────────────────────────────────────────────────────
 function ThirdsResultSection({ onSaved }: { onSaved: () => void }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [slots, setSlots] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getThirdsResult()
+      .then((result) => {
+        if (result) {
+          setSelected(result.qualified_thirds);
+          setSlots(result.bracket_slots);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   function toggle(code: string) {
     if (selected.includes(code)) {
@@ -360,10 +386,14 @@ function ThirdsResultSection({ onSaved }: { onSaved: () => void }) {
     }
   }
 
+  if (loading) {
+    return <p className="text-gray-400 text-sm">Loading saved thirds result…</p>;
+  }
+
   return (
     <div className="space-y-6">
       <p className="text-gray-400 text-sm">
-        Select the 8 third-place teams that qualified for the knockout stage. Then assign them to bracket slots 1–8.
+        Select the 8 third-place teams that qualified for the knockout stage. Then assign each to the bracket slot indicating which group winner they will face in the Round of 32.
       </p>
 
       <div>
@@ -405,7 +435,10 @@ function ThirdsResultSection({ onSaved }: { onSaved: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {Array.from({ length: 8 }, (_, i) => String(i + 1)).map((slot) => (
               <div key={slot} className="flex items-center gap-3">
-                <span className="text-gray-400 text-sm w-14 shrink-0">Slot {slot}</span>
+                <div className="shrink-0 w-44">
+                  <div className="text-white text-sm font-medium">Slot {slot}</div>
+                  <div className="text-emerald-400 text-xs">{SLOT_LABELS[slot]}</div>
+                </div>
                 <select
                   value={slots[slot] || ""}
                   onChange={(e) => updateSlot(slot, e.target.value)}
