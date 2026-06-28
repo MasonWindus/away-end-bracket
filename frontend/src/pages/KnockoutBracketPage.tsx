@@ -558,17 +558,6 @@ export default function KnockoutBracketPage() {
             )}
           </div>
 
-          {showPicks && hasUserPicks && (
-            <div className="mb-3 flex items-start gap-2 bg-away-green/60 border border-away-moss/60 rounded-lg px-3 py-2.5 text-xs text-away-cream/50">
-              <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-away-cream/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>
-                Your picks are based on your <span className="text-away-cream/70">group stage predictions</span>, not the actual results — so some matchups in your bracket may differ from the real draw.
-              </span>
-            </div>
-          )}
-
           {showPicks && hasUserPicks && resultCount > 0 && (
             <RoundSummary matches={matches} pts={currentRoundData.pts} round={selectedRound} />
           )}
