@@ -130,6 +130,16 @@ export async function getStandings(): Promise<LiveGroupStandings[]> {
   return data.groups;
 }
 
+export interface KnockoutBracketData {
+  knockout_result: KnockoutResult | null;
+  group_results: GroupResult[];
+  thirds_result: ThirdsResult | null;
+}
+
+export async function getKnockoutBracket(): Promise<KnockoutBracketData> {
+  return apiFetch<KnockoutBracketData>("/knockout-bracket");
+}
+
 // ---- Admin ----
 
 export async function submitGroupResult(

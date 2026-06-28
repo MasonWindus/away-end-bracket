@@ -37,7 +37,8 @@ export const handler = async (
     if (
       path.startsWith("/api/leaderboard") ||
       path.startsWith("/api/brackets") ||
-      path.startsWith("/api/standings")
+      path.startsWith("/api/standings") ||
+      path.startsWith("/api/knockout-bracket")
     ) {
       return await handleLeaderboard(apiEvent);
     }
