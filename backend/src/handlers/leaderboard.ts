@@ -5,12 +5,15 @@ import { computeLiveGroupTable } from "../lib/standings";
 import {
   GroupCode,
   GroupPickItem,
+  GroupResultItem,
   KnockoutPicksItem,
+  KnockoutResultItem,
   LeaderboardEntry,
   MatchResult,
   MatchResultItem,
   ScoresItem,
   ThirdsPickItem,
+  ThirdsResultItem,
   UserItem,
 } from "../types";
 
@@ -31,6 +34,10 @@ export async function handleLeaderboard(
 
     if (method === "GET" && path === "/api/standings") {
       return await getStandings();
+    }
+
+    if (method === "GET" && path === "/api/knockout-bracket") {
+      return await getKnockoutBracket();
     }
 
     const bracketMatch = path.match(/^\/api\/brackets\/([^/]+)$/);
@@ -317,6 +324,50 @@ async function getUserBracket(userId: string): Promise<APIGatewayProxyResult> {
           total_score: scoresItem.total_score,
           breakdown: scoresItem.breakdown,
           last_calculated: scoresItem.last_calculated,
+        }
+      : null,
+  });
+}
+
+async function getKnockoutBracket(): Promise<APIGatewayProxyResult> {
+  const [knockoutItem, thirdsItem, groupItems] = await Promise.all([
+    getItem({ PK: "RESULT#KNOCKOUT", SK: "RESULT" }),
+    getItem({ PK: "RESULT#THIRDS", SK: "RESULT" }),
+    Promise.all(
+      GROUP_CODES.map((code) =>
+        getItem({ PK: `RESULT#GROUP#${code}`, SK: "RESULT" })
+      )
+    ),
+  ]);
+
+  const ko = knockoutItem as KnockoutResultItem | undefined;
+  const thirds = thirdsItem as ThirdsResultItem | undefined;
+
+  const groupResults = (groupItems as (GroupResultItem | undefined)[])
+    .filter((item): item is GroupResultItem => item !== undefined)
+    .map((item) => ({
+      group_code: item.group_code,
+      first_place: item.first_place,
+      second_place: item.second_place,
+      third_place: item.third_place,
+      fourth_place: item.fourth_place,
+    }));
+
+  return response(200, {
+    knockout_result: ko
+      ? {
+          R32Winners: ko.R32Winners,
+          R16Winners: ko.R16Winners,
+          QFWinners: ko.QFWinners,
+          SFWinners: ko.SFWinners,
+          champion: ko.champion,
+        }
+      : null,
+    group_results: groupResults,
+    thirds_result: thirds
+      ? {
+          qualified_thirds: thirds.qualified_thirds,
+          bracket_slots: thirds.bracket_slots,
         }
       : null,
   });

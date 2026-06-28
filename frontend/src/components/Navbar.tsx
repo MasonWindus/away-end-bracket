@@ -55,6 +55,12 @@ export default function Navbar() {
             >
               Standings
             </Link>
+            <Link
+              to="/knockout"
+              className="text-away-cream/80 hover:text-away-gold transition-colors text-sm font-semibold tracking-wide uppercase"
+            >
+              Bracket
+            </Link>
             {user ? (
               <>
                 <Link
@@ -130,6 +136,13 @@ export default function Navbar() {
               onClick={() => setMenuOpen(false)}
             >
               Standings
+            </Link>
+            <Link
+              to="/knockout"
+              className="block text-away-cream/80 hover:text-away-gold py-2 text-sm font-semibold uppercase tracking-wide transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              Bracket
             </Link>
             {user ? (
               <>
