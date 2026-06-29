@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { buildR32Field } from "../lib/bracket";
 import {
   getGroupResults,
   submitGroupResult,
   submitThirdsResult,
   submitKnockoutResult,
+  getKnockoutBracket,
   recalculate,
   getRecalculateStatus,
   getAdminUsers,
@@ -471,33 +473,146 @@ function ThirdsResultSection({ onSaved }: { onSaved: () => void }) {
 
 // ─── Knockout Results Section ─────────────────────────────────────────────────
 function KnockoutResultSection({ onSaved }: { onSaved: () => void }) {
+  type RoundKey = "R32" | "R16" | "QF" | "SF" | "Final";
+
+  const [loading, setLoading] = useState(true);
+  const [r32Field, setR32Field] = useState<string[]>(Array(32).fill("TBD"));
+  const [r32W, setR32W] = useState<string[]>(Array(16).fill(""));
+  const [r16W, setR16W] = useState<string[]>(Array(8).fill(""));
+  const [qfW, setQfW] = useState<string[]>(Array(4).fill(""));
+  const [sfW, setSfW] = useState<string[]>(Array(2).fill(""));
+  const [champion, setChampion] = useState("");
+  const [activeRound, setActiveRound] = useState<RoundKey>("R32");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  // Simple textarea-based input for each round (comma-separated team codes)
-  const [inputs, setInputs] = useState({ R32Winners: "", R16Winners: "", QFWinners: "", SFWinners: "", champion: "" });
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getKnockoutBracket();
+        const gp = data.group_results.map((r) => ({ ...r, locked: true }));
+        const ts: Record<number, string> = data.thirds_result
+          ? Object.fromEntries(Object.entries(data.thirds_result.bracket_slots).map(([k, v]) => [+k, v]))
+          : {};
+        const field = buildR32Field(
+          gp,
+          data.thirds_result ? { teams: data.thirds_result.qualified_thirds } : null,
+          ts
+        );
+        setR32Field(field);
 
-  function parseTeams(val: string): string[] {
-    return val.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+        if (data.knockout_result) {
+          const r = data.knockout_result;
+          const r32Set = new Set(r.R32Winners);
+          const r16Set = new Set(r.R16Winners);
+          const qfSet = new Set(r.QFWinners);
+          const sfSet = new Set(r.SFWinners);
+
+          const newR32W = Array.from({ length: 16 }, (_, i) => {
+            const a = field[i * 2] || "", b = field[i * 2 + 1] || "";
+            return r32Set.has(a) ? a : r32Set.has(b) ? b : "";
+          });
+          setR32W(newR32W);
+
+          const newR16W = Array.from({ length: 8 }, (_, i) => {
+            const a = newR32W[i * 2] || "", b = newR32W[i * 2 + 1] || "";
+            return r16Set.has(a) ? a : r16Set.has(b) ? b : "";
+          });
+          setR16W(newR16W);
+
+          const newQfW = Array.from({ length: 4 }, (_, i) => {
+            const a = newR16W[i * 2] || "", b = newR16W[i * 2 + 1] || "";
+            return qfSet.has(a) ? a : qfSet.has(b) ? b : "";
+          });
+          setQfW(newQfW);
+
+          const newSfW = Array.from({ length: 2 }, (_, i) => {
+            const a = newQfW[i * 2] || "", b = newQfW[i * 2 + 1] || "";
+            return sfSet.has(a) ? a : sfSet.has(b) ? b : "";
+          });
+          setSfW(newSfW);
+          setChampion(r.champion || "");
+        }
+      } catch {
+        // group results not yet available
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  function selectWinner(round: RoundKey, matchIdx: number, team: string) {
+    const tog = (arr: string[], i: number, t: string) => {
+      const n = [...arr]; n[i] = n[i] === t ? "" : t; return n;
+    };
+    if (round === "R32") {
+      setR32W((p) => tog(p, matchIdx, team));
+      const r16i = Math.floor(matchIdx / 2);
+      setR16W((p) => { const n = [...p]; n[r16i] = ""; return n; });
+      const qfi = Math.floor(r16i / 2);
+      setQfW((p) => { const n = [...p]; n[qfi] = ""; return n; });
+      setSfW((p) => { const n = [...p]; n[Math.floor(qfi / 2)] = ""; return n; });
+      setChampion("");
+    } else if (round === "R16") {
+      setR16W((p) => tog(p, matchIdx, team));
+      const qfi = Math.floor(matchIdx / 2);
+      setQfW((p) => { const n = [...p]; n[qfi] = ""; return n; });
+      setSfW((p) => { const n = [...p]; n[Math.floor(qfi / 2)] = ""; return n; });
+      setChampion("");
+    } else if (round === "QF") {
+      setQfW((p) => tog(p, matchIdx, team));
+      setSfW((p) => { const n = [...p]; n[Math.floor(matchIdx / 2)] = ""; return n; });
+      setChampion("");
+    } else if (round === "SF") {
+      setSfW((p) => tog(p, matchIdx, team));
+      setChampion("");
+    } else {
+      setChampion((p) => (p === team ? "" : team));
+    }
+  }
+
+  function getMatchTeams(round: RoundKey, i: number): [string, string] {
+    switch (round) {
+      case "R32":   return [r32Field[i * 2] || "TBD", r32Field[i * 2 + 1] || "TBD"];
+      case "R16":   return [r32W[i * 2] || "", r32W[i * 2 + 1] || ""];
+      case "QF":    return [r16W[i * 2] || "", r16W[i * 2 + 1] || ""];
+      case "SF":    return [qfW[i * 2] || "", qfW[i * 2 + 1] || ""];
+      case "Final": return [sfW[0] || "", sfW[1] || ""];
+    }
+  }
+
+  function getMatchWinner(round: RoundKey, i: number): string {
+    switch (round) {
+      case "R32":   return r32W[i] || "";
+      case "R16":   return r16W[i] || "";
+      case "QF":    return qfW[i] || "";
+      case "SF":    return sfW[i] || "";
+      case "Final": return champion;
+    }
+  }
+
+  function roundComplete(round: RoundKey): number {
+    switch (round) {
+      case "R32":   return r32W.filter(Boolean).length;
+      case "R16":   return r16W.filter(Boolean).length;
+      case "QF":    return qfW.filter(Boolean).length;
+      case "SF":    return sfW.filter(Boolean).length;
+      case "Final": return champion ? 1 : 0;
+    }
   }
 
   async function handleSave() {
-    const R32Winners = parseTeams(inputs.R32Winners);
-    const R16Winners = parseTeams(inputs.R16Winners);
-    const QFWinners = parseTeams(inputs.QFWinners);
-    const SFWinners = parseTeams(inputs.SFWinners);
-    const champion = inputs.champion.trim().toUpperCase();
-
-    if (R32Winners.length !== 16) { setMessage("R32 winners: need exactly 16 teams"); return; }
-    if (R16Winners.length !== 8) { setMessage("R16 winners: need exactly 8 teams"); return; }
-    if (QFWinners.length !== 4) { setMessage("QF winners: need exactly 4 teams"); return; }
-    if (SFWinners.length !== 2) { setMessage("SF winners: need exactly 2 teams"); return; }
-    if (!champion) { setMessage("Champion is required"); return; }
-
     setSaving(true);
     setMessage("");
     try {
-      await submitKnockoutResult({ R32Winners, R16Winners, QFWinners, SFWinners, champion });
+      await submitKnockoutResult({
+        R32Winners: r32W.filter(Boolean),
+        R16Winners: r16W.filter(Boolean),
+        QFWinners: qfW.filter(Boolean),
+        SFWinners: sfW.filter(Boolean),
+        champion,
+      });
       setMessage("✓ Knockout results saved");
       onSaved();
     } catch (err: unknown) {
@@ -507,33 +622,120 @@ function KnockoutResultSection({ onSaved }: { onSaved: () => void }) {
     }
   }
 
-  const rounds: Array<[keyof typeof inputs, string, number]> = [
-    ["R32Winners", "R32 Winners (16 teams)", 16],
-    ["R16Winners", "R16 Winners (8 teams)", 8],
-    ["QFWinners", "QF Winners (4 teams)", 4],
-    ["SFWinners", "SF Winners / Finalists (2 teams)", 2],
-    ["champion", "Champion (1 team)", 1],
+  const ROUND_TABS: Array<{ key: RoundKey; label: string; total: number }> = [
+    { key: "R32",   label: "R32",   total: 16 },
+    { key: "R16",   label: "R16",   total: 8  },
+    { key: "QF",    label: "QF",    total: 4  },
+    { key: "SF",    label: "SF",    total: 2  },
+    { key: "Final", label: "Final", total: 1  },
   ];
+
+  const matchCount = { R32: 16, R16: 8, QF: 4, SF: 2, Final: 1 }[activeRound];
+  const totalComplete =
+    r32W.filter(Boolean).length + r16W.filter(Boolean).length +
+    qfW.filter(Boolean).length + sfW.filter(Boolean).length + (champion ? 1 : 0);
+
+  if (loading) {
+    return <div className="text-emerald-400 animate-pulse text-sm">Loading bracket data...</div>;
+  }
 
   return (
     <div className="space-y-5">
       <p className="text-gray-400 text-sm">
-        Enter team codes (e.g. BRA, FRA) comma-separated for each round. Enter results after they are final.
+        Click a team to mark them as the match winner. Save at any point — partial results are fine.
+        {totalComplete > 0 && (
+          <span className="ml-2 text-emerald-400 font-medium">{totalComplete}/31 matches entered.</span>
+        )}
       </p>
-      {rounds.map(([field, label, count]) => (
-        <div key={field} className="space-y-1.5">
-          <label className="text-gray-300 text-sm font-medium block">
-            {label} <span className="text-gray-500 font-normal">({count} team{count > 1 ? "s" : ""})</span>
-          </label>
-          <input
-            type="text"
-            value={inputs[field]}
-            onChange={(e) => setInputs((prev) => ({ ...prev, [field]: e.target.value }))}
-            placeholder={count === 1 ? "e.g. BRA" : "e.g. BRA, FRA, ARG, ..."}
-            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600"
-          />
-        </div>
-      ))}
+
+      {/* Round tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {ROUND_TABS.map(({ key, label, total }) => {
+          const done = roundComplete(key);
+          const isActive = activeRound === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveRound(key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                isActive
+                  ? "bg-emerald-700 text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+              }`}
+            >
+              {label}
+              <span className={`text-xs font-normal ${
+                isActive ? "text-emerald-300" : done === total ? "text-emerald-400" : "text-gray-500"
+              }`}>
+                {done}/{total}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Match grid */}
+      <div className={
+        matchCount === 1
+          ? "max-w-xs"
+          : `grid gap-3 grid-cols-1 sm:grid-cols-2`
+      }>
+        {Array.from({ length: matchCount }, (_, i) => {
+          const [teamA, teamB] = getMatchTeams(activeRound, i);
+          const winner = getMatchWinner(activeRound, i);
+          const canSelect = !!teamA && teamA !== "TBD" && !!teamB && teamB !== "TBD";
+
+          return (
+            <div key={i} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
+              <div className="px-3 py-1.5 bg-gray-900/40">
+                <span className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Match {i + 1}</span>
+              </div>
+              {([teamA, teamB] as [string, string]).map((team, ti) => {
+                const isTBD = !team || team === "TBD";
+                const isSelected = !!team && winner === team;
+                const name = isTBD ? "TBD" : (TEAM_NAMES[team] || team);
+                return (
+                  <React.Fragment key={ti}>
+                    {ti === 1 && (
+                      <div className="border-t border-b border-gray-700/40 py-0.5 text-center">
+                        <span className="text-gray-600 text-[10px]">vs</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => canSelect && !isTBD && selectWinner(activeRound, i, team)}
+                      disabled={!canSelect || isTBD}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
+                        isSelected
+                          ? "bg-emerald-900/40"
+                          : !canSelect || isTBD
+                          ? "cursor-default"
+                          : "hover:bg-gray-700/50 cursor-pointer"
+                      }`}
+                    >
+                      <span className="w-4 shrink-0 flex items-center justify-center">
+                        {isSelected && (
+                          <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                      {!isTBD && <TeamFlag code={team} />}
+                      <span className={`text-sm truncate ${
+                        isSelected        ? "text-emerald-300 font-semibold" :
+                        isTBD || !canSelect ? "text-gray-600 italic"         :
+                                             "text-gray-300"
+                      }`}>
+                        {name}
+                      </span>
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
       {message && (
         <p className={`text-sm ${message.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{message}</p>
       )}

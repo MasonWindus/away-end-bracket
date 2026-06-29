@@ -322,25 +322,28 @@ async function postKnockoutResult(
     return errorResponse(400, "Invalid JSON body");
   }
 
-  const { R32Winners, R16Winners, QFWinners, SFWinners, champion } = body;
+  const R32Winners = body.R32Winners ?? [];
+  const R16Winners = body.R16Winners ?? [];
+  const QFWinners = body.QFWinners ?? [];
+  const SFWinners = body.SFWinners ?? [];
+  const champion = body.champion ?? "";
 
-  if (!R32Winners || !Array.isArray(R32Winners) || R32Winners.length !== 16) {
-    return errorResponse(400, "R32Winners must be an array of exactly 16 teams");
+  if (!Array.isArray(R32Winners) || R32Winners.length > 16) {
+    return errorResponse(400, "R32Winners must be an array of up to 16 teams");
   }
-  if (!R16Winners || !Array.isArray(R16Winners) || R16Winners.length !== 8) {
-    return errorResponse(400, "R16Winners must be an array of exactly 8 teams");
+  if (!Array.isArray(R16Winners) || R16Winners.length > 8) {
+    return errorResponse(400, "R16Winners must be an array of up to 8 teams");
   }
-  if (!QFWinners || !Array.isArray(QFWinners) || QFWinners.length !== 4) {
-    return errorResponse(400, "QFWinners must be an array of exactly 4 teams");
+  if (!Array.isArray(QFWinners) || QFWinners.length > 4) {
+    return errorResponse(400, "QFWinners must be an array of up to 4 teams");
   }
-  if (!SFWinners || !Array.isArray(SFWinners) || SFWinners.length !== 2) {
-    return errorResponse(400, "SFWinners must be an array of exactly 2 teams");
+  if (!Array.isArray(SFWinners) || SFWinners.length > 2) {
+    return errorResponse(400, "SFWinners must be an array of up to 2 teams");
   }
-  if (!champion || typeof champion !== "string") {
-    return errorResponse(400, "champion must be a single team code string");
+  if (typeof champion !== "string") {
+    return errorResponse(400, "champion must be a string");
   }
-
-  if (!SFWinners.includes(champion)) {
+  if (champion && !SFWinners.includes(champion)) {
     return errorResponse(400, "champion must be one of the two SF winners");
   }
 
