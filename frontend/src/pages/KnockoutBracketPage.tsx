@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { getKnockoutBracket, getKnockoutPicks } from "../lib/api";
-import { buildR32Field } from "../lib/bracket";
+import { buildR32Field, deriveActualPicks } from "../lib/bracket";
 import { TEAM_NAMES } from "../data/teams";
 import TeamFlag from "../components/TeamFlag";
 import { useAuth } from "../lib/auth";
@@ -17,40 +17,6 @@ const ROUNDS: { key: RoundKey; label: string; shortLabel: string; pts: number; c
   { key: "SF",    label: "Semifinals",   shortLabel: "SF",    pts: 10, count: 2  },
   { key: "Final", label: "Final",        shortLabel: "Final", pts: 0,  count: 1  },
 ];
-
-// Map actual results into slot-ordered KnockoutPicks so BracketView-style logic works.
-// Traverses the bracket tree to handle unordered admin input correctly.
-function deriveActualPicks(r32Field: string[], result: KnockoutResult): KnockoutPicks {
-  const r32Set = new Set(result.R32Winners);
-  const R16 = Array.from({ length: 16 }, (_, i) => {
-    const a = r32Field[i * 2] || "";
-    const b = r32Field[i * 2 + 1] || "";
-    return (a && r32Set.has(a)) ? a : (b && r32Set.has(b)) ? b : "";
-  });
-
-  const r16Set = new Set(result.R16Winners);
-  const QF = Array.from({ length: 8 }, (_, i) => {
-    const a = R16[i * 2] || "";
-    const b = R16[i * 2 + 1] || "";
-    return (a && r16Set.has(a)) ? a : (b && r16Set.has(b)) ? b : "";
-  });
-
-  const qfSet = new Set(result.QFWinners);
-  const SF = Array.from({ length: 4 }, (_, i) => {
-    const a = QF[i * 2] || "";
-    const b = QF[i * 2 + 1] || "";
-    return (a && qfSet.has(a)) ? a : (b && qfSet.has(b)) ? b : "";
-  });
-
-  const sfSet = new Set(result.SFWinners);
-  const Final = Array.from({ length: 2 }, (_, i) => {
-    const a = SF[i * 2] || "";
-    const b = SF[i * 2 + 1] || "";
-    return (a && sfSet.has(a)) ? a : (b && sfSet.has(b)) ? b : "";
-  });
-
-  return { R16, QF, SF, Final, Champion: result.champion || "", locked: true };
-}
 
 interface MatchData {
   teamA: string;

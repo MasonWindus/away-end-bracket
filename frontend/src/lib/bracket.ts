@@ -1,5 +1,5 @@
 import { THIRDS_SCENARIOS } from "../data/thirdsScenarios";
-import type { GroupPick } from "../types";
+import type { GroupPick, KnockoutPicks, KnockoutResult } from "../types";
 
 // Build the 32-team R32 field using the official FIFA 2026 bracket.
 // thirdsSlots: admin-assigned overrides (post-group-stage); defaults to {}
@@ -80,4 +80,61 @@ export function buildR32Field(
     winner("B"),   thirdSlot(7),
     winner("K"),   thirdSlot(8),
   ];
+}
+
+// Map actual results into slot-ordered KnockoutPicks so per-match bracket logic
+// (e.g. which specific team lost which specific match) works against real results.
+// Traverses the bracket tree to handle unordered admin input correctly.
+export function deriveActualPicks(r32Field: string[], result: KnockoutResult): KnockoutPicks {
+  const r32Set = new Set(result.R32Winners);
+  const R16 = Array.from({ length: 16 }, (_, i) => {
+    const a = r32Field[i * 2] || "";
+    const b = r32Field[i * 2 + 1] || "";
+    return (a && r32Set.has(a)) ? a : (b && r32Set.has(b)) ? b : "";
+  });
+
+  const r16Set = new Set(result.R16Winners);
+  const QF = Array.from({ length: 8 }, (_, i) => {
+    const a = R16[i * 2] || "";
+    const b = R16[i * 2 + 1] || "";
+    return (a && r16Set.has(a)) ? a : (b && r16Set.has(b)) ? b : "";
+  });
+
+  const qfSet = new Set(result.QFWinners);
+  const SF = Array.from({ length: 4 }, (_, i) => {
+    const a = QF[i * 2] || "";
+    const b = QF[i * 2 + 1] || "";
+    return (a && qfSet.has(a)) ? a : (b && qfSet.has(b)) ? b : "";
+  });
+
+  const sfSet = new Set(result.SFWinners);
+  const Final = Array.from({ length: 2 }, (_, i) => {
+    const a = SF[i * 2] || "";
+    const b = SF[i * 2 + 1] || "";
+    return (a && sfSet.has(a)) ? a : (b && sfSet.has(b)) ? b : "";
+  });
+
+  return { R16, QF, SF, Final, Champion: result.champion || "", locked: true };
+}
+
+// For a round's paired entrants (e.g. R32 field, or QF entrants derived from
+// deriveActualPicks), classify each entrant as having won, lost, or not yet
+// played its match. A team is only "lost" once we know its specific opponent
+// in the pair won — simply being absent from the round's winners list isn't
+// enough, since that's equally true of a team whose match hasn't happened yet.
+export type MatchTeamStatus = "won" | "lost" | "pending";
+
+export function buildRoundStatusMap(entrantPairs: string[], winners: string[]): Map<string, MatchTeamStatus> {
+  const winnersSet = new Set(winners);
+  const map = new Map<string, MatchTeamStatus>();
+  for (let i = 0; i < entrantPairs.length; i += 2) {
+    const a = entrantPairs[i];
+    const b = entrantPairs[i + 1];
+    const aValid = !!a && a !== "TBD";
+    const bValid = !!b && b !== "TBD";
+    const matchDecided = (aValid && winnersSet.has(a)) || (bValid && winnersSet.has(b));
+    if (aValid) map.set(a, winnersSet.has(a) ? "won" : matchDecided ? "lost" : "pending");
+    if (bValid) map.set(b, winnersSet.has(b) ? "won" : matchDecided ? "lost" : "pending");
+  }
+  return map;
 }
