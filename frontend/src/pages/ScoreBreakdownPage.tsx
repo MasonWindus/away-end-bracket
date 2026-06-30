@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { getUserBracket, getStandings, getKnockoutBracket } from "../lib/api";
+import { buildR32Field, deriveActualPicks, buildRoundStatusMap, type MatchTeamStatus } from "../lib/bracket";
 import { GROUP_CODES, TEAM_NAMES } from "../data/teams";
 import TeamFlag from "../components/TeamFlag";
 import type {
@@ -150,15 +151,18 @@ function KnockoutRoundCard({
   ptsEach,
   picks,
   actualWinners,
+  statusMap,
 }: {
   title: string;
   ptsEach: number;
   picks: string[];
   actualWinners: string[] | null;
+  statusMap: Map<string, MatchTeamStatus>;
 }) {
   const filledPicks = picks.filter(Boolean);
-  const actualSet = new Set(actualWinners ?? []);
-  const points = actualWinners ? filledPicks.filter((t) => actualSet.has(t)).length * ptsEach : null;
+  const points = actualWinners
+    ? filledPicks.filter((t) => actualWinners.includes(t)).length * ptsEach
+    : null;
 
   return (
     <div className="bg-away-green border border-away-moss rounded-xl p-4">
@@ -182,18 +186,23 @@ function KnockoutRoundCard({
       ) : (
         <div className="flex flex-wrap gap-2">
           {filledPicks.map((team) => {
-            const correct = actualSet.has(team);
+            // "won"/"lost" require knowing this team's specific match result, not just
+            // absence from the round's winners list — that's equally true of a team
+            // that simply hasn't played yet, which shouldn't be shown as eliminated.
+            const status = statusMap.get(team) ?? "pending";
             return (
               <span
                 key={team}
                 className={`px-3 py-1.5 rounded-full text-sm border flex items-center gap-1.5 ${
-                  correct
+                  status === "won"
                     ? "bg-emerald-900/30 border-emerald-600/50 text-emerald-300"
-                    : "bg-red-900/15 border-red-700/30 text-red-400/70"
+                    : status === "lost"
+                    ? "bg-red-900/15 border-red-700/30 text-red-400/70"
+                    : "bg-away-moss/40 border-away-moss text-away-cream/70"
                 }`}
               >
                 <TeamFlag code={team} /> {TEAM_NAMES[team] || team}
-                <span className="text-xs">{correct ? "✓" : "✗"}</span>
+                {status !== "pending" && <span className="text-xs">{status === "won" ? "✓" : "✗"}</span>}
               </span>
             );
           })}
@@ -307,6 +316,22 @@ export default function ScoreBreakdownPage() {
   const ko = bracket.knockout_picks;
   const result = koData.knockout_result;
 
+  // Reconstruct the real bracket pairings so we can tell "eliminated" apart from
+  // "hasn't played yet" — both look the same as a flat "absent from winners list"
+  // check, but only the former should render as a red/incorrect pick.
+  const r32Field = buildR32Field(
+    koData.group_results.map((r) => ({ ...r, locked: true })),
+    koData.thirds_result ? { teams: koData.thirds_result.qualified_thirds } : null,
+    koData.thirds_result
+      ? Object.fromEntries(Object.entries(koData.thirds_result.bracket_slots).map(([k, v]) => [parseInt(k), v]))
+      : {}
+  );
+  const actualPicks = result ? deriveActualPicks(r32Field, result) : null;
+  const r32StatusMap = buildRoundStatusMap(r32Field, result?.R32Winners ?? []);
+  const r16StatusMap = buildRoundStatusMap(actualPicks?.R16 ?? [], result?.R16Winners ?? []);
+  const qfStatusMap = buildRoundStatusMap(actualPicks?.QF ?? [], result?.QFWinners ?? []);
+  const sfStatusMap = buildRoundStatusMap(actualPicks?.SF ?? [], result?.SFWinners ?? []);
+
   const r32Actual = result && result.R32Winners.length > 0 ? result.R32Winners : null;
   const r16Actual = result && result.R16Winners.length > 0 ? result.R16Winners : null;
   const qfActual = result && result.QFWinners.length > 0 ? result.QFWinners : null;
@@ -405,23 +430,27 @@ export default function ScoreBreakdownPage() {
             ptsEach={2}
             picks={ko?.R16 ?? []}
             actualWinners={r32Actual}
+            statusMap={r32StatusMap}
           />
           <KnockoutRoundCard
             title="Round of 16 → Quarterfinals"
             ptsEach={4}
             picks={ko?.QF ?? []}
             actualWinners={r16Actual}
+            statusMap={r16StatusMap}
           />
           <KnockoutRoundCard
             title="Quarterfinals → Semifinals"
             ptsEach={6}
             picks={ko?.SF ?? []}
             actualWinners={qfActual}
+            statusMap={qfStatusMap}
           />
           <KnockoutRoundCard
             title="Semifinals → Final"
             ptsEach={10}
             picks={ko?.Final ?? []}
+            statusMap={sfStatusMap}
             actualWinners={sfActual}
           />
           <BonusCard
