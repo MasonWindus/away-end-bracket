@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Register from "./pages/Register";
 import Verify from "./pages/Verify";
 import Picks from "./pages/Picks";
+import ScoreBreakdownPage from "./pages/ScoreBreakdownPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import StandingsPage from "./pages/StandingsPage";
 import KnockoutBracketPage from "./pages/KnockoutBracketPage";
@@ -172,6 +173,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Picks />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-score"
+            element={
+              <ProtectedRoute>
+                <ScoreBreakdownPage />
               </ProtectedRoute>
             }
           />

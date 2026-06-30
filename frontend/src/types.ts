@@ -79,6 +79,28 @@ export interface AdminUser {
   total_score: number;
 }
 
+export interface ScoreBreakdown {
+  groups: Record<GroupCode, number>;
+  thirds: number;
+  r32: number;
+  r16: number;
+  qf: number;
+  sf: number;
+  finalist: number;
+  champion: number;
+  group_stage_total: number;
+  knockout_total: number;
+  total: number;
+}
+
+export interface UserScores {
+  group_stage_score: number;
+  knockout_score: number;
+  total_score: number;
+  breakdown: ScoreBreakdown;
+  last_calculated: string;
+}
+
 export interface PublicBracket {
   userId: string;
   display_name: string;
@@ -86,6 +108,7 @@ export interface PublicBracket {
   group_picks: GroupPick[];
   thirds_pick: ThirdsPick | null;
   knockout_picks: KnockoutPicks | null;
+  scores: UserScores | null;
 }
 
 export interface MatchResult {
