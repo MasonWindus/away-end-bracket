@@ -1,5 +1,4 @@
 import { GroupCode, GroupPick, GroupResult, KnockoutPicks, KnockoutResult, ScoreBreakdown, ThirdsResult } from "../types";
-import { getR32Field } from "../data/bracket";
 
 /**
  * Calculate score for a single group pick vs actual group result.
@@ -36,39 +35,42 @@ interface KnockoutScoreResult {
 /**
  * Calculate all knockout round scores.
  *
- * R32 score: intersection of user's 32-team field with actual R32 winners × 2
- * R16 score: intersection of user's R16 picks (16 teams) with actual R16 winners (8 teams) × 4
- * QF score: intersection of user's QF picks (8) with actual QF winners (4) × 6
- * SF score: intersection of user's SF picks (4) with actual SF winners (2) × 10
+ * Each round's "advancing teams" score credits the user for correctly predicting
+ * which teams WIN that round. A team winning round X is the same event as it
+ * becoming an entrant of round X+1, so the comparison is always the user's picks
+ * for round X+1 against the actual round X winners (e.g. R32 winners are the R16
+ * entrants, so R32 score = knockoutPicks.R16 ∩ knockoutResult.R32Winners).
+ *
+ * R32 score: intersection of user's R16 picks (16 teams) with actual R32 winners × 2
+ * R16 score: intersection of user's QF picks (8 teams) with actual R16 winners × 4
+ * QF score: intersection of user's SF picks (4) with actual QF winners × 6
+ * SF score: intersection of user's Final picks (2) with actual SF winners × 10
  * Finalist: actual non-champion finalist in user's Final array → 15
  * Champion: user's Champion === actual champion → 20
  */
 export function calculateKnockoutScore(
-  groupPicks: Record<string, GroupPick>,
-  thirdsPicks: string[],
   knockoutPicks: KnockoutPicks,
   knockoutResult: KnockoutResult
 ): KnockoutScoreResult {
-  // R32 score
-  const r32Field = getR32Field(groupPicks, thirdsPicks);
-  const r32FieldSet = new Set(r32Field);
-  const r32Winners = knockoutResult.R32Winners || [];
-  const r32Score = r32Winners.filter((team) => r32FieldSet.has(team)).length * 2;
-
-  // R16 score
+  // R32 score: did the user's predicted R16 entrants match the actual R32 winners?
   const r16PicksSet = new Set(knockoutPicks.R16 || []);
-  const r16Winners = knockoutResult.R16Winners || [];
-  const r16Score = r16Winners.filter((team) => r16PicksSet.has(team)).length * 4;
+  const r32Winners = knockoutResult.R32Winners || [];
+  const r32Score = r32Winners.filter((team) => r16PicksSet.has(team)).length * 2;
 
-  // QF score
+  // R16 score: did the user's predicted QF entrants match the actual R16 winners?
   const qfPicksSet = new Set(knockoutPicks.QF || []);
-  const qfWinners = knockoutResult.QFWinners || [];
-  const qfScore = qfWinners.filter((team) => qfPicksSet.has(team)).length * 6;
+  const r16Winners = knockoutResult.R16Winners || [];
+  const r16Score = r16Winners.filter((team) => qfPicksSet.has(team)).length * 4;
 
-  // SF score
+  // QF score: did the user's predicted SF entrants match the actual QF winners?
   const sfPicksSet = new Set(knockoutPicks.SF || []);
+  const qfWinners = knockoutResult.QFWinners || [];
+  const qfScore = qfWinners.filter((team) => sfPicksSet.has(team)).length * 6;
+
+  // SF score: did the user's predicted Final entrants match the actual SF winners?
+  const finalPicksSet = new Set(knockoutPicks.Final || []);
   const sfWinners = knockoutResult.SFWinners || [];
-  const sfScore = sfWinners.filter((team) => sfPicksSet.has(team)).length * 10;
+  const sfScore = sfWinners.filter((team) => finalPicksSet.has(team)).length * 10;
 
   // Finalist score: 15 pts if the non-champion finalist is in user's Final picks
   const actualChampion = knockoutResult.champion;
@@ -134,12 +136,7 @@ export function calculateAllScores(
   let knockoutTotal = 0;
 
   if (knockoutPicks && knockoutResult) {
-    const knockoutResult_ = calculateKnockoutScore(
-      allGroupPicks as Record<string, GroupPick>,
-      thirdsPicks,
-      knockoutPicks,
-      knockoutResult
-    );
+    const knockoutResult_ = calculateKnockoutScore(knockoutPicks, knockoutResult);
     r32Score = knockoutResult_.r32Score;
     r16Score = knockoutResult_.r16Score;
     qfScore = knockoutResult_.qfScore;
