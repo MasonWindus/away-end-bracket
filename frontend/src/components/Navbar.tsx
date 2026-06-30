@@ -69,6 +69,12 @@ export default function Navbar() {
                 >
                   My Picks
                 </Link>
+                <Link
+                  to="/my-score"
+                  className="text-away-cream/80 hover:text-away-gold transition-colors text-sm font-semibold tracking-wide uppercase"
+                >
+                  My Score
+                </Link>
                 {user.is_admin && (
                   <Link
                     to="/admin"
@@ -152,6 +158,13 @@ export default function Navbar() {
                   onClick={() => setMenuOpen(false)}
                 >
                   My Picks
+                </Link>
+                <Link
+                  to="/my-score"
+                  className="block text-away-cream/80 hover:text-away-gold py-2 text-sm font-semibold uppercase tracking-wide transition-colors"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  My Score
                 </Link>
                 {user.is_admin && (
                   <Link
