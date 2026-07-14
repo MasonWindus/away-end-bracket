@@ -188,6 +188,7 @@ export default function App() {
           <Route path="/standings" element={<StandingsPage />} />
           <Route path="/knockout" element={<KnockoutBracketPage />} />
           <Route path="/bracket/:userId" element={<PublicBracketPage />} />
+          <Route path="/bracket/:userId/breakdown" element={<ScoreBreakdownPage />} />
           <Route
             path="/admin"
             element={

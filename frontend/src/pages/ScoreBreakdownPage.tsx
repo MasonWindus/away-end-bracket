@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { getUserBracket, getStandings, getKnockoutBracket } from "../lib/api";
 import { buildR32Field, deriveActualPicks, buildRoundStatusMap, type MatchTeamStatus } from "../lib/bracket";
@@ -254,6 +254,9 @@ function BonusCard({
 
 export default function ScoreBreakdownPage() {
   const { user } = useAuth();
+  const { userId: routeUserId } = useParams<{ userId: string }>();
+  const targetUserId = routeUserId ?? user?.id;
+  const isOwnBreakdown = !routeUserId || routeUserId === user?.id;
   const [bracket, setBracket] = useState<PublicBracket | null>(null);
   const [standings, setStandings] = useState<LiveGroupStandings[]>([]);
   const [koData, setKoData] = useState<{
@@ -265,22 +268,22 @@ export default function ScoreBreakdownPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!user) return;
+    if (!targetUserId) return;
     setLoading(true);
-    Promise.all([getUserBracket(user.id), getStandings(), getKnockoutBracket()])
+    Promise.all([getUserBracket(targetUserId), getStandings(), getKnockoutBracket()])
       .then(([b, s, k]) => {
         setBracket(b);
         setStandings(s);
         setKoData(k);
       })
-      .catch((err: Error) => setError(err.message || "Failed to load your score breakdown"))
+      .catch((err: Error) => setError(err.message || "Failed to load score breakdown"))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [targetUserId]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-away-gold animate-pulse text-lg">Loading your score breakdown...</div>
+        <div className="text-away-gold animate-pulse text-lg">Loading score breakdown...</div>
       </div>
     );
   }
@@ -289,8 +292,8 @@ export default function ScoreBreakdownPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <p className="text-red-400 text-lg mb-4">{error || "Could not load score breakdown"}</p>
-        <Link to="/picks" className="text-away-gold hover:text-away-gold-light underline">
-          ← Back to My Picks
+        <Link to="/leaderboard" className="text-away-gold hover:text-away-gold-light underline">
+          ← Back to Leaderboard
         </Link>
       </div>
     );
@@ -362,9 +365,17 @@ export default function ScoreBreakdownPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
-        <h1 className="font-display text-4xl tracking-widest text-away-gold mb-1">Score Breakdown</h1>
+        {!isOwnBreakdown && (
+          <Link to={`/bracket/${bracket.userId}`} className="text-away-gold/70 hover:text-away-gold text-sm mb-2 inline-block">
+            ← {bracket.display_name}'s Bracket
+          </Link>
+        )}
+        <h1 className="font-display text-4xl tracking-widest text-away-gold mb-1">
+          {isOwnBreakdown ? "Score Breakdown" : `${bracket.display_name}'s Score Breakdown`}
+        </h1>
         <p className="text-away-cream/60 text-sm">
-          Every stage of your score, calculated live so you can see exactly how points were earned.
+          Every stage of {isOwnBreakdown ? "your" : `${bracket.display_name}'s`} score, calculated live so you can see
+          exactly how points were earned.
         </p>
       </div>
 

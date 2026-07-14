@@ -249,12 +249,20 @@ export default function LeaderboardPage() {
                     <span className="text-away-gold font-bold tabular-nums text-sm">{entry.total_score}</span>
                   </div>
                 </div>
-                <Link
-                  to={`/bracket/${entry.userId}`}
-                  className="text-xs text-away-gold/70 hover:text-away-gold underline transition-colors self-start"
-                >
-                  View bracket
-                </Link>
+                <div className="flex gap-3 self-start">
+                  <Link
+                    to={`/bracket/${entry.userId}`}
+                    className="text-xs text-away-gold/70 hover:text-away-gold underline transition-colors"
+                  >
+                    View bracket
+                  </Link>
+                  <Link
+                    to={`/bracket/${entry.userId}/breakdown`}
+                    className="text-xs text-away-gold/70 hover:text-away-gold underline transition-colors"
+                  >
+                    Point breakdown
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -326,7 +334,7 @@ export default function LeaderboardPage() {
                     <th className="text-right px-4 py-3 text-xs font-bold text-away-gold uppercase tracking-wider">
                       Total
                     </th>
-                    <th className="text-center px-4 py-3 text-xs font-bold text-away-cream/60 uppercase tracking-wider w-20">
+                    <th className="text-center px-4 py-3 text-xs font-bold text-away-cream/60 uppercase tracking-wider">
                       Bracket
                     </th>
                   </tr>
@@ -389,12 +397,20 @@ export default function LeaderboardPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Link
-                            to={`/bracket/${entry.userId}`}
-                            className="inline-flex items-center gap-1 text-xs text-away-gold hover:text-away-gold-light underline transition-colors"
-                          >
-                            View
-                          </Link>
+                          <div className="flex items-center justify-center gap-3">
+                            <Link
+                              to={`/bracket/${entry.userId}`}
+                              className="inline-flex items-center gap-1 text-xs text-away-gold hover:text-away-gold-light underline transition-colors whitespace-nowrap"
+                            >
+                              View
+                            </Link>
+                            <Link
+                              to={`/bracket/${entry.userId}/breakdown`}
+                              className="inline-flex items-center gap-1 text-xs text-away-gold hover:text-away-gold-light underline transition-colors whitespace-nowrap"
+                            >
+                              Breakdown
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );
