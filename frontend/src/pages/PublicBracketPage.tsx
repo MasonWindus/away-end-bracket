@@ -98,6 +98,12 @@ export default function PublicBracketPage() {
           </div>
           <p className="text-gray-400 mt-1">The Away End — World Cup 2026</p>
         </div>
+        <Link
+          to={`/bracket/${bracket.userId}/breakdown`}
+          className="shrink-0 bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
+        >
+          View Point Breakdown
+        </Link>
       </div>
 
       {/* Late entry notice */}
