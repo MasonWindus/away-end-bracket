@@ -72,19 +72,21 @@ export function calculateKnockoutScore(
   const sfWinners = knockoutResult.SFWinners || [];
   const sfScore = sfWinners.filter((team) => finalPicksSet.has(team)).length * 10;
 
-  // Finalist score: 15 pts if the non-champion finalist is in user's Final picks
+  // Finalist score: 15 pts if the non-champion finalist is in user's Final picks.
+  // Only meaningful once both SF winners AND the champion are known — otherwise
+  // the "non-champion" finalist can't be identified yet (avoids awarding this
+  // early based on a lone semifinal winner before the final is decided).
   const actualChampion = knockoutResult.champion;
-  const sfWinnersSet = new Set(sfWinners);
-  // The two finalists are the two SF winners; the non-champion is the one that isn't the champion
-  const finalists = sfWinners.filter((team) => team !== actualChampion);
   const userFinalSet = new Set(knockoutPicks.Final || []);
-  const finalistScore = finalists.some((team) => userFinalSet.has(team)) ? 15 : 0;
+  let finalistScore = 0;
+  if (actualChampion && sfWinners.length === 2) {
+    // The two finalists are the two SF winners; the non-champion is the one that isn't the champion
+    const finalists = sfWinners.filter((team) => team !== actualChampion);
+    finalistScore = finalists.some((team) => userFinalSet.has(team)) ? 15 : 0;
+  }
 
   // Champion score
   const championScore = knockoutPicks.Champion === actualChampion ? 20 : 0;
-
-  // Silence unused variable warning
-  void sfWinnersSet;
 
   const total = r32Score + r16Score + qfScore + sfScore + finalistScore + championScore;
 
