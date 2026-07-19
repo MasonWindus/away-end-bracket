@@ -14,10 +14,12 @@ import KnockoutBracketPage from "./pages/KnockoutBracketPage";
 import PublicBracketPage from "./pages/PublicBracketPage";
 import Admin from "./pages/Admin";
 import About from "./pages/About";
+import SpainChampionsPopup from "./components/SpainChampionsPopup";
 
 const BRACKET_FIX_NOTICE_KEY = "bracketFixNotice_v1";
 const LATE_ENTRY_NOTICE_KEY = "lateEntryNotice_v1";
 const KNOCKOUT_STALE_WARNING_KEY = "knockoutStaleWarning_v1";
+const SPAIN_CHAMPIONS_POPUP_KEY = "spainChampionsPopup_v1";
 const PICKS_DEADLINE = new Date("2026-06-11T16:00:00Z");
 
 function ProtectedRoute({
@@ -118,8 +120,19 @@ export default function App() {
     setShowKnockoutWarning(false);
   }
 
+  const [showSpainChampionsPopup, setShowSpainChampionsPopup] = useState(
+    () => localStorage.getItem(SPAIN_CHAMPIONS_POPUP_KEY) !== "dismissed"
+  );
+  function dismissSpainChampionsPopup() {
+    localStorage.setItem(SPAIN_CHAMPIONS_POPUP_KEY, "dismissed");
+    setShowSpainChampionsPopup(false);
+  }
+
   return (
     <div className="min-h-screen bg-away-forest">
+      {showSpainChampionsPopup && (
+        <SpainChampionsPopup onDismiss={dismissSpainChampionsPopup} />
+      )}
       {showLateEntryPopup && <LateEntryPopup onDismiss={dismissLateEntryPopup} />}
       <Navbar />
       {showBracketNotice && (
