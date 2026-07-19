@@ -97,18 +97,18 @@ export default function SpainChampionsPopup({ onDismiss }: { onDismiss: () => vo
             <TeamFlag code="ESP" /> Spain wins the World Cup! <TeamFlag code="ESP" />
           </p>
           <p className="text-away-cream/80 text-sm leading-relaxed mb-3">
-            Congratulations to Spain and every single player, coach, ball boy, mascot, and
-            hot dog vendor who made this tournament possible.
+            Congratulations to Spain, worthy champions of the world!
           </p>
           <p className="text-away-cream/70 text-sm leading-relaxed mb-3">
-            Truly, from the bottom of our hearts: thank you. Thank you for the group stage.
-            Thank you for the extra time. Thank you for the penalty shootouts we all watched
-            through our fingers. Thank you for showing up, thank you for trying your best,
-            and thank you, most of all, for playing a whole entire game of soccer for us.
+            And to every single one of you who filled out a bracket for this very silly little
+            game: thank you. Thank you for the group stage picks. Thank you for agonizing over
+            your knockout bracket. Thank you for checking the leaderboard way more than was
+            healthy. Whether you nailed it or your bracket was busted by the Round of 32, you
+            showed up and you played along, and that means the world to us.
           </p>
           <p className="text-away-cream/60 text-xs leading-relaxed mb-6 italic">
-            We mean it. Every team. Every fan. Everyone who filled out a bracket, even the
-            ones who picked their favorite jersey color. You're all champions to us. Mostly Spain, though.
+            We mean it. Every single entrant. Even the late ones. Even the ones who picked
+            teams based on jersey colors. You're all champions to us. Mostly Spain, though.
           </p>
           <button
             onClick={onDismiss}
